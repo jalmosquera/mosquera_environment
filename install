@@ -3,6 +3,7 @@
 set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
 readonly CATALOG="$ROOT_DIR/catalog/packages.toml"
 readonly CHATSMANAGER_URL="https://github.com/jalmosquera/chatsManager.git"
 readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
@@ -12,6 +13,7 @@ readonly PROFILE_FILE="$STATE_DIR/profile"
 PROFILE=""
 DRY_RUN=false
 CONFIGURE_FISH_ONLY=false
+VERBOSE=false
 OS=""
 DISTRO=""
 ARCH=""
@@ -19,9 +21,13 @@ PKG_MANAGER=""
 BACKUP_DIR=""
 declare -a PACKAGES=()
 
+[[ -r "$PRESENTATION" ]] || { printf 'Missing presentation module: %s\n' "$PRESENTATION" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "$PRESENTATION"
+
 usage() {
     cat <<'EOF'
-Usage: ./install [profile] [--dry-run]
+Usage: ./install [profile] [--dry-run] [--verbose]
 
        ./install --configure-fish [--dry-run]
 
@@ -30,20 +36,14 @@ Without a profile, install prompts interactively.
 EOF
 }
 
-info() { printf '%s\n' "$*"; }
-ok() { printf '✓ %s\n' "$*"; }
-skip() { printf '○ %s\n' "$*"; }
-fail() { printf '✗ %s\n' "$*" >&2; }
+info() { mosquera_ui_note "$*"; }
+ok() { mosquera_ui_status ok installer "$*"; }
+skip() { mosquera_ui_status skip installer "$*"; }
+fail() { mosquera_ui_status fail installer "$*"; }
 die() { fail "$*"; exit 1; }
 
 run() {
-    if "$DRY_RUN"; then
-        printf '  dry-run:'
-        printf ' %q' "$@"
-        printf '\n'
-    else
-        "$@"
-    fi
+    mosquera_ui_command installer "$@"
 }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
@@ -62,7 +62,7 @@ select_profile() {
 
     if [[ ! -t 0 ]]; then
         PROFILE="core"
-        info 'No interactive terminal detected; using profile core.'
+        mosquera_ui_note 'No interactive terminal detected; using profile core.'
         return
     fi
 
@@ -115,9 +115,8 @@ detect_platform() {
 }
 
 preflight() {
-    info 'Mosquera Soft Environment'
-    info
-    info 'Checking requirements...'
+    mosquera_ui_banner "$DISTRO" "$ARCH" "$PKG_MANAGER" "$PROFILE"
+    mosquera_ui_section 'Preflight'
     ok "$DISTRO"
     ok "$ARCH"
     ok "Package manager: $PKG_MANAGER"
@@ -289,7 +288,10 @@ install_official_carapace() {
         run curl --fail --silent --show-error --location https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest
         return 0
     fi
-    release_tag="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest | tr -d '\n' | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+    if ! release_tag="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest | tr -d '\n' | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"; then
+        mosquera_ui_status fail carapace 'could not resolve official release tag'
+        return 1
+    fi
     [[ -n "$release_tag" ]] || die 'Could not determine the latest official Carapace release.'
     run curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
         "https://github.com/carapace-sh/carapace-bin/releases/download/${release_tag}/carapace-bin_${release_tag#v}_linux_${carapace_arch}.tar.gz" \
@@ -300,8 +302,8 @@ install_official_carapace() {
         die 'Official Carapace release must contain exactly one carapace binary.'
     fi
     binary="$matches"
-    tar -xzf "$archive" -C "$extract_dir" "$binary"
-    install -m 0755 "$extract_dir/$binary" "$HOME/.local/bin/carapace"
+    mosquera_ui_command carapace tar -xzf "$archive" -C "$extract_dir" "$binary"
+    mosquera_ui_command carapace install -m 0755 "$extract_dir/$binary" "$HOME/.local/bin/carapace"
     rm -f "$archive"
     rm -rf "$extract_dir"
     "$HOME/.local/bin/carapace" --version >/dev/null || die 'Installed Carapace did not run.'
@@ -363,25 +365,32 @@ install_special() {
 }
 
 install_dependencies() {
-    info
-    info '[1/4] Dependencies'
-    local package
+    mosquera_ui_section 'Dependencies'
+    local package completed=0 total=0
+    for package in "${PACKAGES[@]}"; do
+        [[ "$package" != chats-manager ]] && total=$((total + 1))
+    done
     for package in "${PACKAGES[@]}"; do
         if [[ "$package" == chats-manager ]]; then
             continue
         fi
         if is_installed "$package"; then
-            ok "$package already installed"
+            completed=$((completed + 1))
+            mosquera_ui_status ok "$package" 'already installed'
+            mosquera_ui_progress "$completed" "$total" "$package"
             continue
         fi
 
+        mosquera_ui_status install "$package" 'installing'
         if install_special "$package"; then
+            completed=$((completed + 1))
             if "$DRY_RUN"; then
-                skip "$package would be installed"
+                mosquera_ui_status skip "$package" 'would be installed'
             else
                 is_installed "$package" || die "$package installation did not provide the expected command."
-                ok "$package installed"
+                mosquera_ui_status ok "$package" 'installed'
             fi
+            mosquera_ui_progress "$completed" "$total" "$package"
         else
             die "Failed to install $package."
         fi
@@ -395,9 +404,9 @@ backup_path() {
     run mkdir -p "$BACKUP_DIR"
     run mv "$path" "$BACKUP_DIR/$(basename "$path")"
     if "$DRY_RUN"; then
-        skip "$path would be backed up"
+        mosquera_ui_status skip configuration "$path would be backed up"
     else
-        ok "backed up $path"
+        mosquera_ui_status update configuration "backed up $path"
     fi
 }
 
@@ -405,16 +414,16 @@ link_config() {
     local source="$1"
     local target="$2"
     if [[ -L "$target" && "$(readlink "$target")" == "$source" ]]; then
-        ok "$target already configured"
+        mosquera_ui_status ok configuration "$target already configured"
         return
     fi
     backup_path "$target"
     run mkdir -p "$(dirname "$target")"
     run ln -s "$source" "$target"
     if "$DRY_RUN"; then
-        skip "$target would be linked"
+        mosquera_ui_status skip configuration "$target would be linked"
     else
-        ok "$target configured"
+        mosquera_ui_status ok configuration "$target configured"
     fi
 }
 
@@ -425,7 +434,7 @@ link_fish_config() {
 
     if [[ -L "$fish_dir" && "$(readlink "$fish_dir")" == "$ROOT_DIR/config/fish" ]]; then
         if "$DRY_RUN"; then
-            skip "$fish_dir would be converted to a local directory"
+            mosquera_ui_status skip configuration "$fish_dir would be converted to a local directory"
             return 0
         fi
         local saved_state=""
@@ -438,7 +447,7 @@ link_fish_config() {
         if [[ -n "$saved_state" ]]; then
             mv "$saved_state" "$fish_dir/fish_variables"
         fi
-        ok "$fish_dir converted to a local directory"
+        mosquera_ui_status update configuration "$fish_dir converted to a local directory"
     elif [[ ! -d "$fish_dir" ]]; then
         run mkdir -p "$fish_dir"
     fi
@@ -450,15 +459,13 @@ link_fish_config() {
 
 configure_fish_only() {
     detect_platform
-    info 'Mosquera Soft Environment'
-    info
-    info 'Configuring Fish...'
+    mosquera_ui_banner "$DISTRO" "$ARCH" "$PKG_MANAGER" 'fish-only'
+    mosquera_ui_section 'Configuring Fish'
     link_fish_config
 }
 
 configure_environment() {
-    info
-    info '[2/4] Configuration'
+    mosquera_ui_section 'Configuration'
     link_fish_config
     link_config "$ROOT_DIR/config/tmux/tmux.conf" "$HOME/.tmux.conf"
     link_config "$ROOT_DIR/config/starship/starship.toml" "$HOME/.config/starship.toml"
@@ -466,42 +473,41 @@ configure_environment() {
     if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
         link_config "$ROOT_DIR/config/nvim" "$HOME/.config/nvim"
     else
-        skip 'Neovim configuration is not part of this profile'
+        mosquera_ui_status skip configuration 'Neovim configuration is not part of this profile'
     fi
 }
 
 install_chats_manager() {
-    info
-    info '[3/4] chatsManager'
+    mosquera_ui_section 'chatsManager'
     if [[ -e "$CHATSMANAGER_DIR" && ! -d "$CHATSMANAGER_DIR/.git" ]]; then
         die "$CHATSMANAGER_DIR exists but is not a Git repository; refusing to replace it."
     fi
 
     if [[ ! -e "$CHATSMANAGER_DIR" ]]; then
         run git clone --branch master "$CHATSMANAGER_URL" "$CHATSMANAGER_DIR"
-        "$DRY_RUN" || ok 'repository cloned'
+        "$DRY_RUN" || mosquera_ui_status ok chatsManager 'repository cloned'
     else
         if [[ -n "$(git -C "$CHATSMANAGER_DIR" status --porcelain)" ]]; then
-            skip 'repository has local changes; update skipped'
+            mosquera_ui_status skip chatsManager 'repository has local changes; update skipped'
         else
             run git -C "$CHATSMANAGER_DIR" fetch origin master
             if "$DRY_RUN"; then
-                skip 'repository would be fast-forwarded when possible'
+                mosquera_ui_status skip chatsManager 'repository would be fast-forwarded when possible'
             elif git -C "$CHATSMANAGER_DIR" merge-base --is-ancestor HEAD origin/master; then
                 if [[ "$(git -C "$CHATSMANAGER_DIR" rev-parse HEAD)" == "$(git -C "$CHATSMANAGER_DIR" rev-parse origin/master)" ]]; then
-                    ok 'repository already up to date'
+                    mosquera_ui_status ok chatsManager 'repository already up to date'
                 else
                     git -C "$CHATSMANAGER_DIR" merge --ff-only origin/master
-                    info '↻ chatsManager updated'
+                    mosquera_ui_status update chatsManager updated
                 fi
             else
-                skip 'repository diverged from origin/master; update skipped'
+                mosquera_ui_status skip chatsManager 'repository diverged from origin/master; update skipped'
             fi
         fi
     fi
 
     run "$CHATSMANAGER_DIR/install.sh"
-    "$DRY_RUN" || ok 'chatsManager configured'
+    "$DRY_RUN" || mosquera_ui_status ok chatsManager configured
 }
 
 create_compatibility_links() {
@@ -512,21 +518,20 @@ create_compatibility_links() {
     if ! command_exists fd && command_exists fdfind; then
         run mkdir -p "$bin_dir"
         run ln -sfn "$(command -v fdfind)" "$bin_dir/fd"
-        "$DRY_RUN" || ok 'fd compatibility link configured'
+        "$DRY_RUN" || mosquera_ui_status ok fd 'compatibility link configured'
     fi
     if ! command_exists bat && command_exists batcat; then
         run mkdir -p "$bin_dir"
         run ln -sfn "$(command -v batcat)" "$bin_dir/bat"
-        "$DRY_RUN" || ok 'bat compatibility link configured'
+        "$DRY_RUN" || mosquera_ui_status ok bat 'compatibility link configured'
     fi
     return 0
 }
 
 verify() {
-    info
-    info '[4/4] Verification'
+    mosquera_ui_section 'Verification'
     if "$DRY_RUN"; then
-        skip 'verification skipped in dry-run'
+        mosquera_ui_status skip verification 'skipped in dry-run'
         return
     fi
 
@@ -537,7 +542,7 @@ verify() {
         nvim --headless '+quitall' || die 'Neovim configuration validation failed.'
         node --version >/dev/null || die 'Node validation failed.'
     fi
-    ok 'Installation verified'
+    mosquera_ui_status ok verification 'installation verified'
 }
 
 record_profile() {
@@ -553,6 +558,7 @@ main() {
                 PROFILE="$1"
                 ;;
             --dry-run) DRY_RUN=true ;;
+            --verbose) VERBOSE=true ;;
             --configure-fish) CONFIGURE_FISH_ONLY=true ;;
             -h|--help) usage; exit 0 ;;
             *) die "Unknown argument: $1" ;;
@@ -562,6 +568,7 @@ main() {
 
     if "$CONFIGURE_FISH_ONLY"; then
         [[ -z "$PROFILE" ]] || die '--configure-fish cannot be combined with a profile.'
+        mosquera_ui_init install "$VERBOSE" "$DRY_RUN"
         configure_fish_only
         exit 0
     fi
@@ -570,17 +577,17 @@ main() {
     select_profile
     validate_profile
     detect_platform
+    mosquera_ui_init install "$VERBOSE" "$DRY_RUN"
     preflight
     resolve_profile
-    info
-    info "Installing $PROFILE..."
+    mosquera_ui_status info install "profile $PROFILE"
     install_dependencies
     create_compatibility_links
     configure_environment
     install_chats_manager
     verify
     record_profile
-    "$DRY_RUN" || ok 'Installation completed'
+    "$DRY_RUN" || mosquera_ui_status ok install 'completed'
 }
 
 main "$@"

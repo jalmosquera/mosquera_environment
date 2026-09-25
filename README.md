@@ -1,4 +1,4 @@
-# Mosquera Environment
+# Mosquera Soft Environment
 
 Fuente de verdad del entorno personal portable de Jalberth Mosquera.
 
@@ -18,9 +18,12 @@ Antes de modificar una maquina, revisa el plan con:
 
 ```bash
 ./install workstation --dry-run
+./install workstation --verbose
 ```
 
 El instalador crea backups recuperables en `~/.mosquera-soft/backups/` cuando necesita reemplazar una configuracion existente.
+
+La salida se adapta automaticamente: en una TTY presenta marca, secciones y progreso; en CI, SSH no interactivo, pipes o redirecciones produce lineas estables como `[OK] Git - already installed`. La salida completa de las operaciones se guarda fuera del repositorio en `${XDG_STATE_HOME:-~/.local/state}/mosquera-soft/logs/`. Ante un fallo se muestra el comando, las ultimas lineas del log y su ruta. Usa `--verbose` para transmitir toda la salida de las operaciones durante la ejecucion.
 
 ## Doctor
 
@@ -41,6 +44,7 @@ Fish mantiene su estado mutable, incluido `fish_variables`, en `~/.config/fish`.
 ```bash
 ./update
 ./update --dry-run
+./update --verbose
 ```
 
 `update` fetches each repository and only applies a fast-forward when its working tree is clean. Local changes, missing upstreams and divergence are reported without stashing, merging, rebasing or overwriting data.
@@ -60,4 +64,4 @@ Fish mantiene su estado mutable, incluido `fish_variables`, en `~/.config/fish`.
 
 ## Estado
 
-Fase 4: instalador inicial. `update`, `doctor`, sincronizacion automatica y TUI completa quedan pendientes.
+Fase 8: instalador, diagnostico y actualizador con UX adaptativa de terminal, logs locales y smoke tests en macOS, Ubuntu y Arch Linux.

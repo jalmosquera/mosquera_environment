@@ -3,6 +3,7 @@
 set -euo pipefail
 
 readonly ROOT_DIR="${MOSQUERA_ENV_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
 readonly CHATSMANAGER_DIR="${CHATSMANAGER_DIR:-$HOME/.cheatsheets}"
 readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
 readonly PROFILE_FILE="$STATE_DIR/profile"
@@ -11,29 +12,28 @@ DRY_RUN=false
 UPDATED_ENV=false
 UPDATED_CHATSMANAGER=false
 BLOCKED=false
+VERBOSE=false
+
+[[ -r "$PRESENTATION" ]] || { printf 'Missing presentation module: %s\n' "$PRESENTATION" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "$PRESENTATION"
 
 usage() {
     cat <<'EOF'
-Usage: ./update [--dry-run]
+Usage: ./update [--dry-run] [--verbose]
 
 Fetches and fast-forwards Mosquera Soft Environment and chatsManager only when
 their working trees are clean and their current branches track an upstream.
 EOF
 }
 
-ok() { printf '✓ %-24s %s\n' "$1" "$2"; }
-warn() { printf '⚠ %-24s %s\n' "$1" "$2"; }
-error() { printf '✗ %-24s %s\n' "$1" "$2" >&2; }
-info() { printf '%s\n' "$*"; }
+ok() { mosquera_ui_status ok "$1" "$2"; }
+warn() { mosquera_ui_status warn "$1" "$2"; }
+error() { mosquera_ui_status fail "$1" "$2"; }
+info() { mosquera_ui_note "$*"; }
 
 run() {
-    if "$DRY_RUN"; then
-        printf '  dry-run:'
-        printf ' %q' "$@"
-        printf '\n'
-    else
-        "$@"
-    fi
+    mosquera_ui_command update "$@"
 }
 
 profile() {
@@ -147,21 +147,31 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --dry-run) DRY_RUN=true ;;
+            --verbose) VERBOSE=true ;;
             -h|--help) usage; exit 0 ;;
             *) error Arguments "unknown argument: $1"; exit 1 ;;
         esac
         shift
     done
 
-    info 'Mosquera Soft Environment Update'
-    info
+    local platform arch manager
+    platform="$(uname -s)"
+    arch="$(uname -m)"
+    case "$platform" in
+        Darwin) manager=brew ;;
+        Linux) manager="$(command -v pacman >/dev/null 2>&1 && printf pacman || printf apt)" ;;
+        *) manager=unknown ;;
+    esac
+    mosquera_ui_init update "$VERBOSE" "$DRY_RUN"
+    mosquera_ui_banner "$platform" "$arch" "$manager" "$(profile)"
+    mosquera_ui_section 'Repositories'
     update_repository mosquera-environment "$ROOT_DIR" UPDATED_ENV
     update_repository chatsManager "$CHATSMANAGER_DIR" UPDATED_CHATSMANAGER
     apply_environment
     apply_chats_manager
 
     if "$DRY_RUN"; then
-        info
+        mosquera_ui_section 'Result'
         info 'Dry-run completed. No repositories or configuration were modified.'
         "$BLOCKED" && exit 1 || exit 0
     fi
@@ -179,7 +189,7 @@ main() {
         error doctor 'reported errors after update'
         exit 1
     fi
-    info
+    mosquera_ui_section 'Result'
     if "$UPDATED_ENV" || "$UPDATED_CHATSMANAGER"; then
         info 'Update completed.'
     else

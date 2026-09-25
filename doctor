@@ -3,6 +3,7 @@
 set -uo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
 readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
 readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
 readonly PROFILE_FILE="$STATE_DIR/profile"
@@ -15,6 +16,10 @@ PKG_MANAGER=""
 ERRORS=0
 WARNINGS=0
 
+[[ -r "$PRESENTATION" ]] || { printf 'Missing presentation module: %s\n' "$PRESENTATION" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "$PRESENTATION"
+
 usage() {
     cat <<'EOF'
 Usage: ./doctor [--profile core|server|workstation|full]
@@ -24,10 +29,10 @@ explicit profile, doctor runs core checks and reports a warning.
 EOF
 }
 
-ok() { printf '✓ %-18s %s\n' "$1" "$2"; }
-warn() { printf '⚠ %-18s %s\n' "$1" "$2"; WARNINGS=$((WARNINGS + 1)); }
-error() { printf '✗ %-18s %s\n' "$1" "$2"; ERRORS=$((ERRORS + 1)); }
-skip() { printf '○ %-18s %s\n' "$1" "$2"; }
+ok() { mosquera_ui_status ok "$1" "$2"; }
+warn() { mosquera_ui_status warn "$1" "$2"; WARNINGS=$((WARNINGS + 1)); }
+error() { mosquera_ui_status fail "$1" "$2"; ERRORS=$((ERRORS + 1)); }
+skip() { mosquera_ui_status skip "$1" "$2"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
@@ -292,10 +297,12 @@ main() {
         shift
     done
 
-    printf 'Mosquera Soft Environment Doctor\n\n'
     detect_platform
     load_profile
     validate_profile
+    mosquera_ui_init doctor false false
+    mosquera_ui_banner "$DISTRO" "$ARCH" "$PKG_MANAGER" "$PROFILE"
+    mosquera_ui_section 'Health checks'
     check_platform
     ok Profile "$PROFILE"
     check_terminal
@@ -305,15 +312,15 @@ main() {
     check_repository mosquera-environment "$ROOT_DIR"
     check_repository chatsManager "$CHATSMANAGER_DIR"
 
-    printf '\n'
+    mosquera_ui_section 'Result'
     if (( ERRORS > 0 )); then
-        printf 'Result: UNHEALTHY (%d error(s), %d warning(s))\n' "$ERRORS" "$WARNINGS"
+        mosquera_ui_status fail result "unhealthy: $ERRORS error(s), $WARNINGS warning(s)"
         exit 1
     elif (( WARNINGS > 0 )); then
-        printf 'Result: HEALTHY WITH WARNINGS (%d warning(s))\n' "$WARNINGS"
+        mosquera_ui_status warn result "healthy with $WARNINGS warning(s)"
         exit 0
     else
-        printf 'Result: HEALTHY\n'
+        mosquera_ui_status ok result healthy
     fi
 }
 
