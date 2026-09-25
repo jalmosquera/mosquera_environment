@@ -6,19 +6,19 @@ readonly REPOSITORY_URL="${MOSQUERA_REPOSITORY_URL:-https://github.com/jalmosque
 
 run_smoke() {
     local image="$1" platform="$2" bootstrap="$3"
-    docker run --rm --platform "$platform" --env REPOSITORY_URL="$REPOSITORY_URL" "$image" bash -ceu "
-        $bootstrap
+    docker run --rm --platform "$platform" --security-opt seccomp=unconfined --env REPOSITORY_URL="$REPOSITORY_URL" "$image" bash -ceu '
+        eval "$1"
         useradd --create-home --shell /bin/bash mosquera
-        printf 'mosquera ALL=(ALL) NOPASSWD: ALL\\n' > /etc/sudoers.d/mosquera
-        su - mosquera -c 'HOME=/home/mosquera XDG_STATE_HOME=/home/mosquera/.local/state TERM=xterm-256color REPOSITORY_URL=\"\$REPOSITORY_URL\" bash -ceu '\''
-            git clone "\$REPOSITORY_URL" /home/mosquera/environment
+        printf "mosquera ALL=(ALL) NOPASSWD: ALL\n" > /etc/sudoers.d/mosquera
+        runuser -u mosquera -- env HOME=/home/mosquera XDG_STATE_HOME=/home/mosquera/.local/state TERM=xterm-256color bash -ceu "
+            git clone \"$REPOSITORY_URL\" /home/mosquera/environment
             cd /home/mosquera/environment
             ./install workstation
             ./doctor --profile workstation
             ./update --dry-run
             ./install workstation
-        '\'''
-    "
+        "
+    ' bash "$bootstrap"
 }
 
 run_arch() {

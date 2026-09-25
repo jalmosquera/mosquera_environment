@@ -616,7 +616,7 @@ verify() {
 
     fish --no-execute "$HOME/.config/fish/config.fish" || die 'Fish configuration validation failed.'
     tmux -f "$HOME/.tmux.conf" start-server \; show-options -g default-terminal >/dev/null || die 'Tmux configuration validation failed.'
-    fish -ic 'functions -q cs; and functions -q csfind' || die 'chatsManager Fish integration validation failed.'
+    fish -c 'source "$argv[1]"; functions -q cs; and functions -q csfind' "${XDG_STATE_HOME:-$HOME/.local/state}/chats-manager/fish/cheats_manager.fish" || die 'chatsManager Fish integration validation failed.'
     if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
         nvim --headless '+quitall' || die 'Neovim configuration validation failed.'
         node --version >/dev/null || die 'Node validation failed.'
