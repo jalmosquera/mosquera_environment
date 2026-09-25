@@ -6,7 +6,7 @@ readonly REPOSITORY_URL="${MOSQUERA_REPOSITORY_URL:-https://github.com/jalmosque
 
 run_smoke() {
     local image="$1" platform="$2" bootstrap="$3"
-    docker run --rm --platform "$platform" --security-opt seccomp=unconfined --env REPOSITORY_URL="$REPOSITORY_URL" "$image" bash -ceu '
+    docker run --rm --platform "$platform" --privileged --env REPOSITORY_URL="$REPOSITORY_URL" "$image" bash -ceu '
         eval "$1"
         useradd --create-home --shell /bin/bash mosquera
         printf "mosquera ALL=(ALL) NOPASSWD: ALL\n" > /etc/sudoers.d/mosquera
@@ -15,7 +15,8 @@ run_smoke() {
             cd /home/mosquera/environment
             export NVIM_APPNAME=mosquera-release-smoke
             ./install workstation
-            test -z "\$(git status --porcelain)"
+            git status --porcelain > /tmp/mosquera-git-status
+            test ! -s /tmp/mosquera-git-status
             ./doctor --profile workstation
             ./update --dry-run
             ./install workstation
