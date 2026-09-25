@@ -1,14 +1,9 @@
 if status is-interactive
-    if not functions -q fisher
-        curl -sL https://git.io/fisher | source
-        fisher install jorgebucaran/fisher
-    end
-
     if type -q brew
         eval (brew shellenv)
     end
 
-    fish_add_path --prepend $HOME/.local/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.cargo/bin
+    set -gx PATH $HOME/.local/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.cargo/bin $PATH
 
     if type -q starship
         starship init fish | source
@@ -35,8 +30,8 @@ end
 
 set -g fish_greeting ""
 
-# Enable vi mode
-fish_vi_key_bindings
+# Enable vi mode without persisting a universal variable in fish_variables.
+set -g fish_key_bindings fish_vi_key_bindings
 
 # Set nvim as default editor for opencode and other tools
 set -gx EDITOR nvim

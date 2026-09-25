@@ -22,6 +22,20 @@ Antes de modificar una maquina, revisa el plan con:
 
 El instalador crea backups recuperables en `~/.mosquera-soft/backups/` cuando necesita reemplazar una configuracion existente.
 
+## Doctor
+
+```bash
+./doctor
+```
+
+`doctor` es estrictamente de solo lectura. Tras una instalacion exitosa conoce el perfil instalado; antes de que exista ese estado, ejecuta comprobaciones `core` y muestra un warning. Se puede indicar el perfil de forma explicita con `./doctor --profile workstation`.
+
+Fish mantiene su estado mutable, incluido `fish_variables`, en `~/.config/fish`. El instalador enlaza solamente los archivos declarativos. Para migrar una instalacion anterior que enlazaba todo el directorio, ejecuta:
+
+```bash
+./install --configure-fish
+```
+
 ## Alcance inicial
 
 - Fish, tmux, Neovim y Starship.

@@ -6,9 +6,12 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly CATALOG="$ROOT_DIR/catalog/packages.toml"
 readonly CHATSMANAGER_URL="https://github.com/jalmosquera/chatsManager.git"
 readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
+readonly PROFILE_FILE="$STATE_DIR/profile"
 
 PROFILE=""
 DRY_RUN=false
+CONFIGURE_FISH_ONLY=false
 OS=""
 DISTRO=""
 ARCH=""
@@ -19,6 +22,8 @@ declare -a PACKAGES=()
 usage() {
     cat <<'EOF'
 Usage: ./install [profile] [--dry-run]
+
+       ./install --configure-fish [--dry-run]
 
 Profiles: core, server, workstation, full
 Without a profile, install prompts interactively.
@@ -359,10 +364,48 @@ link_config() {
     fi
 }
 
+link_fish_config() {
+    local fish_dir="$HOME/.config/fish"
+    local path
+    local entries=(config.fish conf.d functions completions themes)
+
+    if [[ -L "$fish_dir" && "$(readlink "$fish_dir")" == "$ROOT_DIR/config/fish" ]]; then
+        if "$DRY_RUN"; then
+            skip "$fish_dir would be converted to a local directory"
+            return 0
+        fi
+        local saved_state=""
+        if [[ -f "$fish_dir/fish_variables" ]]; then
+            saved_state="$(mktemp "$HOME/.config/fish_variables.XXXXXX")"
+            cp "$fish_dir/fish_variables" "$saved_state"
+        fi
+        backup_path "$fish_dir"
+        mkdir -p "$fish_dir"
+        if [[ -n "$saved_state" ]]; then
+            mv "$saved_state" "$fish_dir/fish_variables"
+        fi
+        ok "$fish_dir converted to a local directory"
+    elif [[ ! -d "$fish_dir" ]]; then
+        run mkdir -p "$fish_dir"
+    fi
+
+    for path in "${entries[@]}"; do
+        link_config "$ROOT_DIR/config/fish/$path" "$fish_dir/$path"
+    done
+}
+
+configure_fish_only() {
+    detect_platform
+    info 'Mosquera Soft Environment'
+    info
+    info 'Configuring Fish...'
+    link_fish_config
+}
+
 configure_environment() {
     info
     info '[2/4] Configuration'
-    link_config "$ROOT_DIR/config/fish" "$HOME/.config/fish"
+    link_fish_config
     link_config "$ROOT_DIR/config/tmux/tmux.conf" "$HOME/.tmux.conf"
     link_config "$ROOT_DIR/config/starship/starship.toml" "$HOME/.config/starship.toml"
 
@@ -443,6 +486,11 @@ verify() {
     ok 'Installation verified'
 }
 
+record_profile() {
+    run mkdir -p "$STATE_DIR"
+    run sh -c 'printf "%s\n" "$1" > "$2"' sh "$PROFILE" "$PROFILE_FILE"
+}
+
 main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -451,11 +499,18 @@ main() {
                 PROFILE="$1"
                 ;;
             --dry-run) DRY_RUN=true ;;
+            --configure-fish) CONFIGURE_FISH_ONLY=true ;;
             -h|--help) usage; exit 0 ;;
             *) die "Unknown argument: $1" ;;
         esac
         shift
     done
+
+    if "$CONFIGURE_FISH_ONLY"; then
+        [[ -z "$PROFILE" ]] || die '--configure-fish cannot be combined with a profile.'
+        configure_fish_only
+        exit 0
+    fi
 
     [[ -f "$CATALOG" ]] || die "Catalog missing: $CATALOG"
     select_profile
@@ -470,6 +525,7 @@ main() {
     configure_environment
     install_chats_manager
     verify
+    record_profile
     "$DRY_RUN" || ok 'Installation completed'
 }
 
