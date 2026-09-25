@@ -114,7 +114,7 @@ update_repository() {
 apply_environment() {
     local installed_profile
     [[ "${UPDATE_SKIP_POST_ACTIONS:-false}" == true ]] && return 0
-    "$UPDATED_ENV" || return
+    "$UPDATED_ENV" || return 0
     installed_profile="$(profile)"
     if "$DRY_RUN"; then
         warn configuration "would apply profile $installed_profile"
@@ -130,7 +130,7 @@ apply_environment() {
 
 apply_chats_manager() {
     [[ "${UPDATE_SKIP_POST_ACTIONS:-false}" == true ]] && return 0
-    "$UPDATED_CHATSMANAGER" || return
+    "$UPDATED_CHATSMANAGER" || return 0
     if "$DRY_RUN"; then
         warn chatsManager-bootstrap 'would run after update'
         return
