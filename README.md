@@ -2,7 +2,25 @@
 
 Fuente de verdad del entorno personal portable de Jalberth Mosquera.
 
-Esta primera instantanea contiene solamente configuracion reproducible del entorno activo. No instala ni modifica configuraciones todavia.
+Esta primera instantanea contiene configuracion reproducible y un instalador portable.
+
+## Install
+
+```bash
+git clone https://github.com/jalmosquera/mosquera_environment.git
+cd mosquera_environment
+./install workstation
+```
+
+Perfiles: `core`, `server`, `workstation` y `full`. Sin perfil, el instalador pregunta interactivamente; sin terminal interactiva usa `core`.
+
+Antes de modificar una maquina, revisa el plan con:
+
+```bash
+./install workstation --dry-run
+```
+
+El instalador crea backups recuperables en `~/.mosquera-soft/backups/` cuando necesita reemplazar una configuracion existente.
 
 ## Alcance inicial
 
@@ -19,4 +37,4 @@ Esta primera instantanea contiene solamente configuracion reproducible del entor
 
 ## Estado
 
-Fase 1: inventario y consolidacion. No hay instalador todavia.
+Fase 4: instalador inicial. `update`, `doctor`, sincronizacion automatica y TUI completa quedan pendientes.

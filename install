@@ -1,0 +1,476 @@
+#!/usr/bin/env bash
+# Mosquera Soft Environment installer. See README.md for usage.
+set -euo pipefail
+
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly CATALOG="$ROOT_DIR/catalog/packages.toml"
+readonly CHATSMANAGER_URL="https://github.com/jalmosquera/chatsManager.git"
+readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
+
+PROFILE=""
+DRY_RUN=false
+OS=""
+DISTRO=""
+ARCH=""
+PKG_MANAGER=""
+BACKUP_DIR=""
+declare -a PACKAGES=()
+
+usage() {
+    cat <<'EOF'
+Usage: ./install [profile] [--dry-run]
+
+Profiles: core, server, workstation, full
+Without a profile, install prompts interactively.
+EOF
+}
+
+info() { printf '%s\n' "$*"; }
+ok() { printf '✓ %s\n' "$*"; }
+skip() { printf '○ %s\n' "$*"; }
+fail() { printf '✗ %s\n' "$*" >&2; }
+die() { fail "$*"; exit 1; }
+
+run() {
+    if "$DRY_RUN"; then
+        printf '  dry-run:'
+        printf ' %q' "$@"
+        printf '\n'
+    else
+        "$@"
+    fi
+}
+
+command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+select_profile() {
+    if [[ -n "$PROFILE" ]]; then
+        return
+    fi
+
+    if [[ ! -t 0 ]]; then
+        PROFILE="core"
+        info 'No interactive terminal detected; using profile core.'
+        return
+    fi
+
+    printf 'Select profile [core/server/workstation/full] (default: core): '
+    read -r PROFILE
+    PROFILE="${PROFILE:-core}"
+}
+
+validate_profile() {
+    case "$PROFILE" in
+        core|server|workstation|full) ;;
+        *) die "Unknown profile: $PROFILE" ;;
+    esac
+}
+
+detect_platform() {
+    OS="$(uname -s)"
+    ARCH="$(uname -m)"
+
+    case "$OS" in
+        Darwin)
+            DISTRO="macOS"
+            PKG_MANAGER="brew"
+            command_exists brew || die 'Homebrew is required on macOS. Install it first from https://brew.sh.'
+            ;;
+        Linux)
+            [[ -r /etc/os-release ]] || die 'Cannot determine Linux distribution: /etc/os-release is missing.'
+            # shellcheck disable=SC1091
+            . /etc/os-release
+            case "${ID:-}" in
+                arch|manjaro|endeavouros)
+                    DISTRO="${PRETTY_NAME:-Arch Linux}"
+                    PKG_MANAGER="pacman"
+                    ;;
+                debian|ubuntu|linuxmint|pop)
+                    DISTRO="${PRETTY_NAME:-Debian/Ubuntu}"
+                    PKG_MANAGER="apt"
+                    ;;
+                opensuse*|sles)
+                    DISTRO="${PRETTY_NAME:-openSUSE}"
+                    PKG_MANAGER="zypper"
+                    ;;
+                *) die "Unsupported Linux distribution: ${PRETTY_NAME:-${ID:-unknown}}" ;;
+            esac
+            command_exists "$PKG_MANAGER" || die "Detected $DISTRO but $PKG_MANAGER is unavailable."
+            ;;
+        *) die "Unsupported operating system: $OS" ;;
+    esac
+
+    case "$ARCH" in
+        arm64|aarch64|x86_64|amd64) ;;
+        *) die "Unsupported architecture: $ARCH" ;;
+    esac
+}
+
+preflight() {
+    info 'Mosquera Soft Environment'
+    info
+    info 'Checking requirements...'
+    ok "$DISTRO"
+    ok "$ARCH"
+    ok "Package manager: $PKG_MANAGER"
+
+    command_exists git || die 'Git is required to install Mosquera Soft Environment.'
+    command_exists curl || die 'curl is required to install Mosquera Soft Environment.'
+    ok 'Bootstrap tools: git, curl'
+
+    curl --fail --silent --show-error --head --max-time 10 https://github.com >/dev/null || die 'Network check failed: cannot reach GitHub.'
+    ok 'Network: GitHub reachable'
+
+    [[ -w "$HOME" ]] || die "Home directory is not writable: $HOME"
+    local available_kb
+    available_kb="$(df -Pk "$HOME" | awk 'NR == 2 { print $4 }')"
+    [[ "$available_kb" =~ ^[0-9]+$ ]] || die 'Could not determine free disk space.'
+    (( available_kb >= 524288 )) || die 'At least 512 MiB of free space is required in HOME.'
+    ok 'Requirements: writable home and at least 512 MiB free'
+}
+
+add_package() {
+    local package="$1"
+    local item
+    for item in "${PACKAGES[@]:-}"; do
+        if [[ "$item" == "$package" ]]; then
+            return 0
+        fi
+    done
+    PACKAGES+=("$package")
+    return 0
+}
+
+resolve_profile() {
+    local terminal=(curl git fish tmux fzf ripgrep fd bat less starship zoxide atuin carapace python3 python-venv)
+    local development=(neovim nodejs build-tools github-cli tree lsd)
+    local package
+
+    for package in "${terminal[@]}" chats-manager; do
+        add_package "$package"
+    done
+
+    if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
+        for package in "${development[@]}"; do
+            add_package "$package"
+        done
+    fi
+
+    if [[ "$PROFILE" == full && "$OS" == Linux ]]; then
+        if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+            add_package clipboard-wayland
+        elif [[ -n "${DISPLAY:-}" ]]; then
+            add_package clipboard-x11
+        else
+            skip 'clipboard: no graphical Linux session detected'
+        fi
+    fi
+}
+
+logical_command() {
+    case "$1" in
+        curl) printf 'curl' ;;
+        git) printf 'git' ;;
+        fish) printf 'fish' ;;
+        tmux) printf 'tmux' ;;
+        fzf) printf 'fzf' ;;
+        ripgrep) printf 'rg' ;;
+        fd) printf 'fd' ;;
+        bat) printf 'bat' ;;
+        less) printf 'less' ;;
+        starship) printf 'starship' ;;
+        zoxide) printf 'zoxide' ;;
+        atuin) printf 'atuin' ;;
+        carapace) printf 'carapace' ;;
+        python3|python-venv) printf 'python3' ;;
+        neovim) printf 'nvim' ;;
+        nodejs) printf 'node' ;;
+        build-tools) printf 'make' ;;
+        github-cli) printf 'gh' ;;
+        tree) printf 'tree' ;;
+        lsd) printf 'lsd' ;;
+        clipboard-wayland) printf 'wl-copy' ;;
+        clipboard-x11) printf 'xclip' ;;
+        *) return 1 ;;
+    esac
+}
+
+is_installed() {
+    local package="$1"
+    case "$package" in
+        python-venv) python3 -m venv --help >/dev/null 2>&1 ;;
+        build-tools)
+            if [[ "$OS" == Darwin ]]; then
+                xcode-select -p >/dev/null 2>&1
+            else
+                command_exists make
+            fi
+            ;;
+        chats-manager) [[ -x "$CHATSMANAGER_DIR/install.sh" ]] ;;
+        fd) command_exists fd || command_exists fdfind ;;
+        bat) command_exists bat || command_exists batcat ;;
+        *) command_exists "$(logical_command "$package")" ;;
+    esac
+}
+
+package_name() {
+    local package="$1"
+    case "$PKG_MANAGER:$package" in
+        brew:curl) printf 'curl' ;;
+        pacman:curl|apt:curl|zypper:curl) printf 'curl' ;;
+        brew:git|pacman:git|apt:git|zypper:git) printf 'git' ;;
+        brew:fish|pacman:fish|apt:fish|zypper:fish) printf 'fish' ;;
+        brew:tmux|pacman:tmux|apt:tmux|zypper:tmux) printf 'tmux' ;;
+        brew:fzf|pacman:fzf|apt:fzf|zypper:fzf) printf 'fzf' ;;
+        brew:ripgrep|pacman:ripgrep|apt:ripgrep|zypper:ripgrep) printf 'ripgrep' ;;
+        brew:fd|pacman:fd|zypper:fd) printf 'fd' ;;
+        apt:fd) printf 'fd-find' ;;
+        brew:bat|pacman:bat|apt:bat|zypper:bat) printf 'bat' ;;
+        brew:less|pacman:less|apt:less|zypper:less) printf 'less' ;;
+        brew:starship|pacman:starship) printf 'starship' ;;
+        brew:zoxide|pacman:zoxide|apt:zoxide|zypper:zoxide) printf 'zoxide' ;;
+        brew:atuin|pacman:atuin|apt:atuin|zypper:atuin) printf 'atuin' ;;
+        brew:carapace) printf 'carapace' ;;
+        pacman:carapace) printf 'carapace-bin' ;;
+        brew:python3) printf 'python' ;;
+        pacman:python3) printf 'python' ;;
+        apt:python3|zypper:python3) printf 'python3' ;;
+        apt:python-venv|zypper:python-venv) printf 'python3-venv' ;;
+        brew:neovim|pacman:neovim|apt:neovim|zypper:neovim) printf 'neovim' ;;
+        brew:nodejs) printf 'node' ;;
+        pacman:nodejs|apt:nodejs|zypper:nodejs) printf 'nodejs' ;;
+        pacman:build-tools) printf 'base-devel' ;;
+        apt:build-tools) printf 'build-essential' ;;
+        zypper:build-tools) printf 'patterns-devel-base-devel_basis' ;;
+        brew:github-cli) printf 'gh' ;;
+        pacman:github-cli) printf 'github-cli' ;;
+        apt:github-cli|zypper:github-cli) printf 'gh' ;;
+        brew:tree|pacman:tree|apt:tree|zypper:tree) printf 'tree' ;;
+        brew:lsd|pacman:lsd|apt:lsd|zypper:lsd) printf 'lsd' ;;
+        pacman:clipboard-wayland|apt:clipboard-wayland|zypper:clipboard-wayland) printf 'wl-clipboard' ;;
+        pacman:clipboard-x11|apt:clipboard-x11|zypper:clipboard-x11) printf 'xclip' ;;
+        *) return 1 ;;
+    esac
+}
+
+install_native() {
+    local package="$1"
+    local name
+    name="$(package_name "$package")" || return 1
+
+    case "$PKG_MANAGER" in
+        brew) run brew install "$name" ;;
+        pacman) run sudo pacman -S --needed --noconfirm "$name" ;;
+        apt) run sudo apt-get install -y "$name" ;;
+        zypper) run sudo zypper --non-interactive install --no-recommends "$name" ;;
+    esac
+}
+
+install_special() {
+    local package="$1"
+    case "$package" in
+        python-venv)
+            if [[ "$PKG_MANAGER" == brew || "$PKG_MANAGER" == pacman ]]; then
+                return 0
+            fi
+            install_native "$package"
+            ;;
+        build-tools)
+            if [[ "$OS" == Darwin ]]; then
+                if xcode-select -p >/dev/null 2>&1; then
+                    return 0
+                fi
+                run xcode-select --install
+                die 'Xcode Command Line Tools installation was requested. Re-run install after it completes.'
+            fi
+            install_native "$package"
+            ;;
+        starship)
+            if package_name "$package" >/dev/null 2>&1; then
+                install_native "$package"
+            else
+                run sh -c 'curl -fsSL https://starship.rs/install.sh | sh -s -- -y'
+            fi
+            ;;
+        carapace)
+            if package_name "$package" >/dev/null 2>&1; then
+                install_native "$package"
+            else
+                die "carapace has no native package mapping for $DISTRO yet; install it manually before rerunning."
+            fi
+            ;;
+        *) install_native "$package" ;;
+    esac
+}
+
+install_dependencies() {
+    info
+    info '[1/4] Dependencies'
+    local package
+    for package in "${PACKAGES[@]}"; do
+        if [[ "$package" == chats-manager ]]; then
+            continue
+        fi
+        if is_installed "$package"; then
+            ok "$package already installed"
+            continue
+        fi
+
+        if install_special "$package"; then
+            if "$DRY_RUN"; then
+                skip "$package would be installed"
+            else
+                is_installed "$package" || die "$package installation did not provide the expected command."
+                ok "$package installed"
+            fi
+        else
+            die "Failed to install $package."
+        fi
+    done
+}
+
+backup_path() {
+    local path="$1"
+    [[ -e "$path" || -L "$path" ]] || return 0
+    [[ -n "$BACKUP_DIR" ]] || BACKUP_DIR="$HOME/.mosquera-soft/backups/$(date +%Y%m%d-%H%M%S)"
+    run mkdir -p "$BACKUP_DIR"
+    run mv "$path" "$BACKUP_DIR/$(basename "$path")"
+    if "$DRY_RUN"; then
+        skip "$path would be backed up"
+    else
+        ok "backed up $path"
+    fi
+}
+
+link_config() {
+    local source="$1"
+    local target="$2"
+    if [[ -L "$target" && "$(readlink "$target")" == "$source" ]]; then
+        ok "$target already configured"
+        return
+    fi
+    backup_path "$target"
+    run mkdir -p "$(dirname "$target")"
+    run ln -s "$source" "$target"
+    if "$DRY_RUN"; then
+        skip "$target would be linked"
+    else
+        ok "$target configured"
+    fi
+}
+
+configure_environment() {
+    info
+    info '[2/4] Configuration'
+    link_config "$ROOT_DIR/config/fish" "$HOME/.config/fish"
+    link_config "$ROOT_DIR/config/tmux/tmux.conf" "$HOME/.tmux.conf"
+    link_config "$ROOT_DIR/config/starship/starship.toml" "$HOME/.config/starship.toml"
+
+    if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
+        link_config "$ROOT_DIR/config/nvim" "$HOME/.config/nvim"
+    else
+        skip 'Neovim configuration is not part of this profile'
+    fi
+}
+
+install_chats_manager() {
+    info
+    info '[3/4] chatsManager'
+    if [[ -e "$CHATSMANAGER_DIR" && ! -d "$CHATSMANAGER_DIR/.git" ]]; then
+        die "$CHATSMANAGER_DIR exists but is not a Git repository; refusing to replace it."
+    fi
+
+    if [[ ! -e "$CHATSMANAGER_DIR" ]]; then
+        run git clone --branch master "$CHATSMANAGER_URL" "$CHATSMANAGER_DIR"
+        "$DRY_RUN" || ok 'repository cloned'
+    else
+        if [[ -n "$(git -C "$CHATSMANAGER_DIR" status --porcelain)" ]]; then
+            skip 'repository has local changes; update skipped'
+        else
+            run git -C "$CHATSMANAGER_DIR" fetch origin master
+            if "$DRY_RUN"; then
+                skip 'repository would be fast-forwarded when possible'
+            elif git -C "$CHATSMANAGER_DIR" merge-base --is-ancestor HEAD origin/master; then
+                if [[ "$(git -C "$CHATSMANAGER_DIR" rev-parse HEAD)" == "$(git -C "$CHATSMANAGER_DIR" rev-parse origin/master)" ]]; then
+                    ok 'repository already up to date'
+                else
+                    git -C "$CHATSMANAGER_DIR" merge --ff-only origin/master
+                    info '↻ chatsManager updated'
+                fi
+            else
+                skip 'repository diverged from origin/master; update skipped'
+            fi
+        fi
+    fi
+
+    run "$CHATSMANAGER_DIR/install.sh"
+    "$DRY_RUN" || ok 'chatsManager configured'
+}
+
+create_compatibility_links() {
+    if [[ "$PKG_MANAGER" != apt ]]; then
+        return 0
+    fi
+    local bin_dir="$HOME/.local/bin"
+    if ! command_exists fd && command_exists fdfind; then
+        run mkdir -p "$bin_dir"
+        run ln -sfn "$(command -v fdfind)" "$bin_dir/fd"
+        "$DRY_RUN" || ok 'fd compatibility link configured'
+    fi
+    if ! command_exists bat && command_exists batcat; then
+        run mkdir -p "$bin_dir"
+        run ln -sfn "$(command -v batcat)" "$bin_dir/bat"
+        "$DRY_RUN" || ok 'bat compatibility link configured'
+    fi
+    return 0
+}
+
+verify() {
+    info
+    info '[4/4] Verification'
+    if "$DRY_RUN"; then
+        skip 'verification skipped in dry-run'
+        return
+    fi
+
+    fish --no-execute "$HOME/.config/fish/config.fish" || die 'Fish configuration validation failed.'
+    tmux -f "$HOME/.tmux.conf" start-server \; show-options -g default-terminal >/dev/null || die 'Tmux configuration validation failed.'
+    fish -c 'functions -q cs; and functions -q csfind' || die 'chatsManager Fish integration validation failed.'
+    if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
+        nvim --headless '+quitall' || die 'Neovim configuration validation failed.'
+        node --version >/dev/null || die 'Node validation failed.'
+    fi
+    ok 'Installation verified'
+}
+
+main() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            core|server|workstation|full)
+                [[ -z "$PROFILE" ]] || die 'Specify only one profile.'
+                PROFILE="$1"
+                ;;
+            --dry-run) DRY_RUN=true ;;
+            -h|--help) usage; exit 0 ;;
+            *) die "Unknown argument: $1" ;;
+        esac
+        shift
+    done
+
+    [[ -f "$CATALOG" ]] || die "Catalog missing: $CATALOG"
+    select_profile
+    validate_profile
+    detect_platform
+    preflight
+    resolve_profile
+    info
+    info "Installing $PROFILE..."
+    install_dependencies
+    create_compatibility_links
+    configure_environment
+    install_chats_manager
+    verify
+    "$DRY_RUN" || ok 'Installation completed'
+}
+
+main "$@"
