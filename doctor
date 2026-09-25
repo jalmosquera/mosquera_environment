@@ -4,6 +4,7 @@ set -uo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
+readonly VERSION_FILE="$ROOT_DIR/VERSION"
 readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
 readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
 readonly PROFILE_FILE="$STATE_DIR/profile"
@@ -22,11 +23,21 @@ source "$PRESENTATION"
 
 usage() {
     cat <<'EOF'
-Usage: ./doctor [--profile core|server|workstation|full]
+Uso: ./doctor [--profile core|server|workstation|full]
 
-Reads the installed profile from XDG state when available. Without state or an
-explicit profile, doctor runs core checks and reports a warning.
+Lee el perfil instalado desde el estado XDG. Sin estado ni perfil explícito,
+ejecuta las comprobaciones core y muestra una advertencia.
+
+Opciones:
+  --profile PERFIL  Comprueba el perfil indicado.
+  --version         Muestra la versión.
+  -h, --help        Muestra esta ayuda.
 EOF
+}
+
+version() {
+    [[ -r "$VERSION_FILE" ]] || { printf 'Mosquera Soft Environment (versión desconocida)\n'; return 1; }
+    printf 'Mosquera Soft Environment %s\n' "$(tr -d '[:space:]' < "$VERSION_FILE")"
 }
 
 ok() { mosquera_ui_status ok "$1" "$2"; }
@@ -291,6 +302,7 @@ main() {
                 PROFILE="$2"
                 shift
                 ;;
+            --version) version; exit $? ;;
             -h|--help) usage; exit 0 ;;
             *) error Arguments "unknown argument: $1" ;;
         esac

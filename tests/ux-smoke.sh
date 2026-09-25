@@ -65,6 +65,19 @@ printf 'q' | script -q "$TMP_DIR/tui-check.log" bash -c 'ROOT_DIR="$PWD"; source
 assert_contains "$TMP_DIR/tui-check.log" 'Comprobación del sistema'
 assert_contains "$TMP_DIR/tui-check.log" 'Sistema listo.'
 
+if bash -c 'ROOT_DIR="$PWD"; source ./lib/tui.sh; mosquera_tui_init; kill -TERM $$' > "$TMP_DIR/tui-term.log" 2>&1; then
+    printf 'Expected TUI SIGTERM to exit unsuccessfully.\n' >&2
+    exit 1
+fi
+assert_contains "$TMP_DIR/tui-term.log" '[?25h'
+
+./install --version > "$TMP_DIR/install-version.log"
+./doctor --version > "$TMP_DIR/doctor-version.log"
+./update --version > "$TMP_DIR/update-version.log"
+assert_contains "$TMP_DIR/install-version.log" 'Mosquera Soft Environment 1.0.0'
+assert_contains "$TMP_DIR/doctor-version.log" 'Mosquera Soft Environment 1.0.0'
+assert_contains "$TMP_DIR/update-version.log" 'Mosquera Soft Environment 1.0.0'
+
 script -q "$TMP_DIR/tty.log" ./install workstation --dry-run >/dev/null 2>&1
 assert_contains "$TMP_DIR/tty.log" 'MOSQUERA SOFT'
 assert_contains "$TMP_DIR/tty.log" 'Overall'

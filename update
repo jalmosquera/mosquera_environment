@@ -4,6 +4,7 @@ set -euo pipefail
 
 readonly ROOT_DIR="${MOSQUERA_ENV_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
+readonly VERSION_FILE="$ROOT_DIR/VERSION"
 readonly CHATSMANAGER_DIR="${CHATSMANAGER_DIR:-$HOME/.cheatsheets}"
 readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
 readonly PROFILE_FILE="$STATE_DIR/profile"
@@ -20,11 +21,22 @@ source "$PRESENTATION"
 
 usage() {
     cat <<'EOF'
-Usage: ./update [--dry-run] [--verbose]
+Uso: ./update [--dry-run] [--verbose]
 
-Fetches and fast-forwards Mosquera Soft Environment and chatsManager only when
-their working trees are clean and their current branches track an upstream.
+Obtiene y aplica únicamente fast-forward en Mosquera Soft Environment y
+chatsManager cuando sus árboles están limpios y sus ramas siguen un upstream.
+
+Opciones:
+  --dry-run   Muestra la actualización segura sin modificar repositorios.
+  --verbose   Muestra los comandos y su salida.
+  --version   Muestra la versión.
+  -h, --help  Muestra esta ayuda.
 EOF
+}
+
+version() {
+    [[ -r "$VERSION_FILE" ]] || { printf 'Mosquera Soft Environment (versión desconocida)\n'; return 1; }
+    printf 'Mosquera Soft Environment %s\n' "$(tr -d '[:space:]' < "$VERSION_FILE")"
 }
 
 ok() { mosquera_ui_status ok "$1" "$2"; }
@@ -148,6 +160,7 @@ main() {
         case "$1" in
             --dry-run) DRY_RUN=true ;;
             --verbose) VERBOSE=true ;;
+            --version) version; exit $? ;;
             -h|--help) usage; exit 0 ;;
             *) error Arguments "unknown argument: $1"; exit 1 ;;
         esac

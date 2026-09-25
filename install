@@ -6,6 +6,7 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
 readonly TUI="$ROOT_DIR/lib/tui.sh"
 readonly CATALOG="$ROOT_DIR/catalog/packages.toml"
+readonly VERSION_FILE="$ROOT_DIR/VERSION"
 readonly CHATSMANAGER_URL="https://github.com/jalmosquera/chatsManager.git"
 readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
 readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
@@ -21,6 +22,8 @@ DISTRO=""
 ARCH=""
 PKG_MANAGER=""
 BACKUP_DIR=""
+CARAPACE_ARCHIVE=""
+CARAPACE_EXTRACT_DIR=""
 declare -a PACKAGES=()
 
 [[ -r "$PRESENTATION" ]] || { printf 'Missing presentation module: %s\n' "$PRESENTATION" >&2; exit 1; }
@@ -29,15 +32,39 @@ source "$PRESENTATION"
 
 usage() {
     cat <<'EOF'
-Usage: ./install [profile] [--dry-run] [--verbose]
+Uso:
+  ./install
+      Abre la interfaz interactiva en una terminal.
 
-       ./install --configure-fish [--dry-run]
-       ./install [profile] --check-system
+  ./install <perfil> [--dry-run] [--verbose]
+      Ejecuta un perfil explícitamente; es apto para automatización.
 
-Profiles: core, server, workstation, full
-Without a profile, install prompts interactively.
+  ./install --configure-fish [--dry-run]
+  ./install <perfil> --check-system
+
+Perfiles: core, server, workstation, full
+
+Opciones:
+  --dry-run         Simula sin modificar paquetes, configuración ni estado.
+  --verbose         Muestra los comandos y su salida.
+  --check-system    Comprueba plataforma y prerrequisitos.
+  --configure-fish  Configura únicamente Fish.
+  --version         Muestra la versión.
+  -h, --help        Muestra esta ayuda.
 EOF
 }
+
+version() {
+    [[ -r "$VERSION_FILE" ]] || { printf 'Mosquera Soft Environment (versión desconocida)\n'; return 1; }
+    printf 'Mosquera Soft Environment %s\n' "$(tr -d '[:space:]' < "$VERSION_FILE")"
+}
+
+cleanup_temporaries() {
+    [[ -n "$CARAPACE_ARCHIVE" ]] && rm -f "$CARAPACE_ARCHIVE"
+    [[ -n "$CARAPACE_EXTRACT_DIR" ]] && rm -rf "$CARAPACE_EXTRACT_DIR"
+}
+
+trap cleanup_temporaries EXIT INT TERM
 
 info() { mosquera_ui_note "$*"; }
 ok() { mosquera_ui_status ok installer "$*"; }
@@ -303,22 +330,42 @@ install_official_carapace() {
 
     archive="$(mktemp)"
     extract_dir="$(mktemp -d)"
+    CARAPACE_ARCHIVE="$archive"
+    CARAPACE_EXTRACT_DIR="$extract_dir"
     run mkdir -p "$HOME/.local/bin"
     if "$DRY_RUN"; then
         run curl --fail --silent --show-error --location https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest
+        rm -f "$archive"
+        rm -rf "$extract_dir"
+        CARAPACE_ARCHIVE=""
+        CARAPACE_EXTRACT_DIR=""
         return 0
     fi
     if ! release_tag="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest | tr -d '\n' | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"; then
         mosquera_ui_status fail carapace 'could not resolve official release tag'
+        rm -f "$archive"
+        rm -rf "$extract_dir"
+        CARAPACE_ARCHIVE=""
+        CARAPACE_EXTRACT_DIR=""
         return 1
     fi
-    [[ -n "$release_tag" ]] || die 'Could not determine the latest official Carapace release.'
+    if [[ -z "$release_tag" ]]; then
+        rm -f "$archive"
+        rm -rf "$extract_dir"
+        CARAPACE_ARCHIVE=""
+        CARAPACE_EXTRACT_DIR=""
+        die 'Could not determine the latest official Carapace release.'
+    fi
     run curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
         "https://github.com/carapace-sh/carapace-bin/releases/download/${release_tag}/carapace-bin_${release_tag#v}_linux_${carapace_arch}.tar.gz" \
         -o "$archive"
 
     matches="$(tar -tzf "$archive" | grep -E '(^|/)carapace$' || true)"
     if [[ -z "$matches" || "$(printf '%s\n' "$matches" | wc -l | tr -d ' ')" != 1 ]]; then
+        rm -f "$archive"
+        rm -rf "$extract_dir"
+        CARAPACE_ARCHIVE=""
+        CARAPACE_EXTRACT_DIR=""
         die 'Official Carapace release must contain exactly one carapace binary.'
     fi
     binary="$matches"
@@ -326,6 +373,8 @@ install_official_carapace() {
     mosquera_ui_command carapace install -m 0755 "$extract_dir/$binary" "$HOME/.local/bin/carapace"
     rm -f "$archive"
     rm -rf "$extract_dir"
+    CARAPACE_ARCHIVE=""
+    CARAPACE_EXTRACT_DIR=""
     "$HOME/.local/bin/carapace" --version >/dev/null || die 'Installed Carapace did not run.'
     "$HOME/.local/bin/carapace" _carapace >/dev/null || die 'Installed Carapace cannot generate shell integration.'
 }
@@ -593,6 +642,7 @@ main() {
             --verbose) VERBOSE=true ;;
             --configure-fish) CONFIGURE_FISH_ONLY=true ;;
             --check-system) CHECK_SYSTEM_ONLY=true ;;
+            --version) version; exit $? ;;
             -h|--help) usage; exit 0 ;;
             *) die "Unknown argument: $1" ;;
         esac

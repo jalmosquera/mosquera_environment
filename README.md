@@ -3,7 +3,9 @@
 
 Un entorno de desarrollo reproducible y multiplataforma de Jalberth Mosquera. Mosquera Soft instala, configura, diagnostica y actualiza una experiencia de terminal consistente sin convertir el repositorio en estado mutable de una maquina.
 
-**Soporte oficial:** macOS / Homebrew · Ubuntu y Debian / apt · Arch Linux y Omarchy / pacman
+**Versión estable:** `1.0.0`
+
+**Soporte oficial:** macOS / Homebrew / arm64 · Ubuntu y Debian / apt · Arch Linux y Omarchy / pacman
 
 ## Quick Start
 
@@ -16,6 +18,13 @@ Precondiciones:
 git clone https://github.com/jalmosquera/mosquera_environment.git
 cd mosquera_environment
 ./install workstation
+```
+
+Para consultar la versión o ayuda:
+
+```bash
+./install --version
+./install --help
 ```
 
 Antes de cambiar una maquina, inspecciona el plan:
@@ -115,6 +124,14 @@ Elegí un perfil desde HOME con `p`, o indicalo de forma explícita:
 ./update --verbose
 ```
 
+Los tres comandos principales incluyen `--version` y `--help`:
+
+```bash
+./install --version
+./doctor --version
+./update --version
+```
+
 Cuando una operacion falla, Mosquera Soft conserva el exit code, identifica el comando relevante y muestra las ultimas lineas del log junto a su ubicacion.
 
 ## Update Seguro
@@ -128,6 +145,10 @@ Cuando una operacion falla, Mosquera Soft conserva el exit code, identifica el c
 - resolucion destructiva de conflictos
 
 Repositorios `dirty`, `ahead` o `diverged` se reportan y se protegen en lugar de sobrescribirse.
+
+## Validación de plataformas
+
+La validación de release cubre macOS arm64, Ubuntu 24.04 arm64 y amd64, y Arch Linux amd64 mediante fresh clones desechables. La imagen oficial `archlinux:latest` no publica `linux/arm64`, por lo que Arch Linux arm64 no se declara como validado por contenedor.
 
 ## Estructura
 
