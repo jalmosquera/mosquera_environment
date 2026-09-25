@@ -117,23 +117,26 @@ detect_platform() {
 preflight() {
     mosquera_ui_banner "$DISTRO" "$ARCH" "$PKG_MANAGER" "$PROFILE"
     mosquera_ui_section 'Preflight'
-    ok "$DISTRO"
-    ok "$ARCH"
-    ok "Package manager: $PKG_MANAGER"
 
     command_exists git || die 'Git is required to install Mosquera Soft Environment.'
     command_exists curl || die 'curl is required to install Mosquera Soft Environment.'
-    ok 'Bootstrap tools: git, curl'
 
     curl --fail --silent --show-error --head --max-time 10 https://github.com >/dev/null || die 'Network check failed: cannot reach GitHub.'
-    ok 'Network: GitHub reachable'
 
     [[ -w "$HOME" ]] || die "Home directory is not writable: $HOME"
     local available_kb
     available_kb="$(df -Pk "$HOME" | awk 'NR == 2 { print $4 }')"
     [[ "$available_kb" =~ ^[0-9]+$ ]] || die 'Could not determine free disk space.'
     (( available_kb >= 524288 )) || die 'At least 512 MiB of free space is required in HOME.'
-    ok 'Requirements: writable home and at least 512 MiB free'
+    if "$MOSQUERA_UI_VERBOSE" || ! "$MOSQUERA_UI_DASHBOARD"; then
+        ok "$DISTRO"
+        ok "$ARCH"
+        ok "Package manager: $PKG_MANAGER"
+        ok 'Bootstrap tools: git, curl'
+        ok 'Network: GitHub reachable'
+        ok 'Requirements: writable home and at least 512 MiB free'
+    fi
+    mosquera_ui_complete_section preflight passed
 }
 
 add_package() {
@@ -370,31 +373,39 @@ install_dependencies() {
     for package in "${PACKAGES[@]}"; do
         [[ "$package" != chats-manager ]] && total=$((total + 1))
     done
+    local -a dependency_items=()
+    for package in "${PACKAGES[@]}"; do
+        [[ "$package" != chats-manager ]] && dependency_items+=("$package")
+    done
+    mosquera_ui_dashboard_start "$total" "${dependency_items[@]}"
+    mosquera_ui_set_section dependencies checking
     for package in "${PACKAGES[@]}"; do
         if [[ "$package" == chats-manager ]]; then
             continue
         fi
+        mosquera_ui_set_item "$package" checking checking
         if is_installed "$package"; then
             completed=$((completed + 1))
-            mosquera_ui_status ok "$package" 'already installed'
+            mosquera_ui_complete_item "$package" already-installed 'already installed'
             mosquera_ui_progress "$completed" "$total" "$package"
             continue
         fi
 
-        mosquera_ui_status install "$package" 'installing'
+        mosquera_ui_set_item "$package" installing installing
         if install_special "$package"; then
             completed=$((completed + 1))
             if "$DRY_RUN"; then
-                mosquera_ui_status skip "$package" 'would be installed'
+                mosquera_ui_complete_item "$package" skipped 'would install'
             else
                 is_installed "$package" || die "$package installation did not provide the expected command."
-                mosquera_ui_status ok "$package" 'installed'
+                mosquera_ui_complete_item "$package" installed installed
             fi
             mosquera_ui_progress "$completed" "$total" "$package"
         else
             die "Failed to install $package."
         fi
     done
+    mosquera_ui_complete_section dependencies "$completed/$total"
 }
 
 backup_path() {
@@ -475,6 +486,7 @@ configure_environment() {
     else
         mosquera_ui_status skip configuration 'Neovim configuration is not part of this profile'
     fi
+    mosquera_ui_complete_section configuration configured
 }
 
 install_chats_manager() {
@@ -508,6 +520,7 @@ install_chats_manager() {
 
     run "$CHATSMANAGER_DIR/install.sh"
     "$DRY_RUN" || mosquera_ui_status ok chatsManager configured
+    mosquera_ui_complete_section chatsManager configured
 }
 
 create_compatibility_links() {
@@ -543,6 +556,7 @@ verify() {
         node --version >/dev/null || die 'Node validation failed.'
     fi
     mosquera_ui_status ok verification 'installation verified'
+    mosquera_ui_complete_section verification verified
 }
 
 record_profile() {
@@ -588,6 +602,7 @@ main() {
     verify
     record_profile
     "$DRY_RUN" || mosquera_ui_status ok install 'completed'
+    mosquera_ui_finish_dashboard
 }
 
 main "$@"

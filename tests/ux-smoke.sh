@@ -39,3 +39,18 @@ if bash -c 'source ./lib/presentation.sh; mosquera_ui_init test false false; mos
 fi
 assert_contains "$TMP_DIR/failure.log" '[FAIL] failure'
 assert_contains "$TMP_DIR/failure.log" 'Last output:'
+
+script -q "$TMP_DIR/tty.log" ./install workstation --dry-run >/dev/null 2>&1
+assert_contains "$TMP_DIR/tty.log" 'MOSQUERA SOFT'
+assert_contains "$TMP_DIR/tty.log" 'Overall'
+assert_contains "$TMP_DIR/tty.log" '[?25l'
+assert_contains "$TMP_DIR/tty.log" '[?25h'
+
+COLUMNS=44 script -q "$TMP_DIR/narrow.log" ./install workstation --dry-run >/dev/null 2>&1
+assert_contains "$TMP_DIR/narrow.log" 'MOSQUERA SOFT'
+
+NO_COLOR=1 script -q "$TMP_DIR/no-color.log" ./install workstation --dry-run >/dev/null 2>&1
+if grep -Eq $'\033\[[0-9;]*m' "$TMP_DIR/no-color.log"; then
+    printf 'NO_COLOR output unexpectedly included color escapes.\n' >&2
+    exit 1
+fi
