@@ -1,10 +1,16 @@
-# Mosquera Soft Environment
+# MOSQUERA SOFT
+## Environment Installer
 
-Fuente de verdad del entorno personal portable de Jalberth Mosquera.
+Un entorno de desarrollo reproducible y multiplataforma de Jalberth Mosquera. Mosquera Soft instala, configura, diagnostica y actualiza una experiencia de terminal consistente sin convertir el repositorio en estado mutable de una maquina.
 
-Esta primera instantanea contiene configuracion reproducible y un instalador portable.
+**Soporte oficial:** macOS / Homebrew · Ubuntu y Debian / apt · Arch Linux y Omarchy / pacman
 
-## Install
+## Quick Start
+
+Precondiciones:
+
+- Linux: `git` y `curl`
+- macOS: `git`, `curl` y [Homebrew](https://brew.sh/)
 
 ```bash
 git clone https://github.com/jalmosquera/mosquera_environment.git
@@ -12,56 +18,110 @@ cd mosquera_environment
 ./install workstation
 ```
 
-Perfiles: `core`, `server`, `workstation` y `full`. Sin perfil, el instalador pregunta interactivamente; sin terminal interactiva usa `core`.
-
-Antes de modificar una maquina, revisa el plan con:
+Antes de cambiar una maquina, inspecciona el plan:
 
 ```bash
 ./install workstation --dry-run
-./install workstation --verbose
 ```
 
-El instalador crea backups recuperables en `~/.mosquera-soft/backups/` cuando necesita reemplazar una configuracion existente.
-
-La salida se adapta automaticamente: en una TTY presenta marca, secciones y progreso; en CI, SSH no interactivo, pipes o redirecciones produce lineas estables como `[OK] Git - already installed`. La salida completa de las operaciones se guarda fuera del repositorio en `${XDG_STATE_HOME:-~/.local/state}/mosquera-soft/logs/`. Ante un fallo se muestra el comando, las ultimas lineas del log y su ruta. Usa `--verbose` para transmitir toda la salida de las operaciones durante la ejecucion.
-
-## Doctor
+Diagnostica la instalacion sin modificarla:
 
 ```bash
 ./doctor
 ```
 
-`doctor` es estrictamente de solo lectura. Tras una instalacion exitosa conoce el perfil instalado; antes de que exista ese estado, ejecuta comprobaciones `core` y muestra un warning. Se puede indicar el perfil de forma explicita con `./doctor --profile workstation`.
+Actualiza los repositorios solo cuando sea seguro hacerlo:
 
-Fish mantiene su estado mutable, incluido `fish_variables`, en `~/.config/fish`. El instalador enlaza solamente los archivos declarativos. Para migrar una instalacion anterior que enlazaba todo el directorio, ejecuta:
+```bash
+./update
+```
+
+## Terminal Stack
+
+| Shell and workflow | Navigation and search | Development and history |
+| --- | --- | --- |
+| Fish · tmux · Starship | fzf · ripgrep · fd · bat · zoxide | Neovim · Atuin · Carapace · GitHub CLI · chatsManager |
+
+El [catalogo de dependencias](catalog/packages.toml) contiene el detalle de paquetes, mapeos por plataforma y notas de compatibilidad.
+
+## Capturas
+
+La UX se adapta al terminal: una TTY muestra marca, secciones y progreso; CI, SSH no interactivo, pipes y redirecciones usan lineas estables y sin ANSI.
+
+```text
+MOSQUERA SOFT | install | macOS arm64 | brew | profile: workstation
+DRY RUN: no changes will be made.
+
+[OK] Git - already installed
+[PROGRESS] 2/21 (9%) - git
+[SKIP] verification - skipped in dry-run
+```
+
+Las capturas reales se agregaran en `docs/assets/` cuando se generen en una terminal representativa. Este bloque corresponde a la salida real no interactiva de `./install workstation --dry-run`.
+
+## Caracteristicas
+
+- Instalacion reproducible para macOS, Ubuntu/Debian y Arch/Omarchy.
+- Perfiles `core`, `server`, `workstation` y `full`.
+- UX adaptativa para TTY y no-TTY, con `--dry-run` y `--verbose`.
+- `doctor` estrictamente read-only, con resumen de salud, advertencias y fallos.
+- `update` seguro mediante fast-forward unicamente.
+- Logs persistentes fuera del repositorio en `${XDG_STATE_HOME:-~/.local/state}/mosquera-soft/logs/`.
+- Backups antes de reemplazar configuracion existente en `~/.mosquera-soft/backups/`.
+- Configuracion declarativa versionada separada del runtime mutable de Fish.
+- Integracion de `chatsManager` como repositorio independiente.
+
+## Operaciones
+
+```bash
+# Instalar un perfil; sin perfil solicita uno en TTY y usa core fuera de TTY.
+./install workstation
+
+# Mostrar cada comando y su salida para diagnostico.
+./install workstation --verbose
+
+# Validar la salud sin modificar archivos o repositorios.
+./doctor --profile workstation
+
+# Ver la actualizacion segura sin hacer cambios.
+./update --dry-run
+
+# Mostrar la salida completa de fetch y fast-forward.
+./update --verbose
+```
+
+Cuando una operacion falla, Mosquera Soft conserva el exit code, identifica el comando relevante y muestra las ultimas lineas del log junto a su ubicacion.
+
+## Update Seguro
+
+`update` solo aplica un fast-forward cuando el repositorio tiene un working tree limpio y la rama actual sigue a un upstream valido. No ejecuta automaticamente:
+
+- `reset`
+- `rebase`
+- `stash`
+- `force push`
+- resolucion destructiva de conflictos
+
+Repositorios `dirty`, `ahead` o `diverged` se reportan y se protegen en lugar de sobrescribirse.
+
+## Estructura
+
+```text
+config/    Configuracion declarativa de Fish, tmux, Starship y Neovim.
+catalog/   Dependencias logicas y mapeos por plataforma.
+lib/       Presentacion compartida, logs y adaptacion TTY/no-TTY.
+tests/     Smoke tests Linux y pruebas de UX.
+install    Motor de instalacion y configuracion de perfiles.
+doctor     Diagnostico estrictamente de solo lectura.
+update     Actualizacion segura de repositorios con fast-forward.
+```
+
+## Estado Local
+
+Mosquera Soft evita guardar estado mutable en este repositorio. Usa XDG state para perfiles y logs; Fish conserva variables generadas en `~/.config/fish`. Para migrar una instalacion anterior que enlazaba todo el directorio de Fish, ejecuta:
 
 ```bash
 ./install --configure-fish
 ```
 
-## Update
-
-```bash
-./update
-./update --dry-run
-./update --verbose
-```
-
-`update` fetches each repository and only applies a fast-forward when its working tree is clean. Local changes, missing upstreams and divergence are reported without stashing, merging, rebasing or overwriting data.
-
-## Alcance inicial
-
-- Fish, tmux, Neovim y Starship.
-- Inventario de dependencias y perfiles propuestos.
-- Referencia al repositorio independiente `jalmosquera/chatsManager`.
-
-## Excluido deliberadamente
-
-- Secretos, tokens, claves y credenciales.
-- Historiales, caches, estado de plugins y archivos generados.
-- Configuracion de aplicaciones no incluida en el objetivo de terminal.
-- Rutas personales y configuracion de maquina.
-
-## Estado
-
-Fase 8: instalador, diagnostico y actualizador con UX adaptativa de terminal, logs locales y smoke tests en macOS, Ubuntu y Arch Linux.
+No se incluyen secretos, tokens, claves, historiales, caches ni configuracion especifica de una maquina.
