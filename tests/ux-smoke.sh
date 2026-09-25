@@ -40,6 +40,20 @@ fi
 assert_contains "$TMP_DIR/failure.log" '[FAIL] failure'
 assert_contains "$TMP_DIR/failure.log" 'Last output:'
 
+printf 'q' | script -q "$TMP_DIR/tui-home.log" ./install >/dev/null 2>&1
+assert_contains "$TMP_DIR/tui-home.log" 'Environment Installer'
+assert_contains "$TMP_DIR/tui-home.log" 'Select Profile'
+assert_contains "$TMP_DIR/tui-home.log" 'Check System'
+assert_contains "$TMP_DIR/tui-home.log" '[?25h'
+
+printf 'p\033q' | script -q "$TMP_DIR/tui-profile.log" ./install >/dev/null 2>&1
+assert_contains "$TMP_DIR/tui-profile.log" 'Select Profile'
+assert_contains "$TMP_DIR/tui-profile.log" 'Complete development workstation'
+
+printf 'q' | script -q "$TMP_DIR/tui-check.log" bash -c 'ROOT_DIR="$PWD"; source ./lib/tui.sh; mosquera_tui_automated_demo check' >/dev/null 2>&1
+assert_contains "$TMP_DIR/tui-check.log" 'System Check'
+assert_contains "$TMP_DIR/tui-check.log" 'System ready.'
+
 script -q "$TMP_DIR/tty.log" ./install workstation --dry-run >/dev/null 2>&1
 assert_contains "$TMP_DIR/tty.log" 'MOSQUERA SOFT'
 assert_contains "$TMP_DIR/tty.log" 'Overall'

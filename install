@@ -4,6 +4,7 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PRESENTATION="$ROOT_DIR/lib/presentation.sh"
+readonly TUI="$ROOT_DIR/lib/tui.sh"
 readonly CATALOG="$ROOT_DIR/catalog/packages.toml"
 readonly CHATSMANAGER_URL="https://github.com/jalmosquera/chatsManager.git"
 readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
@@ -13,6 +14,7 @@ readonly PROFILE_FILE="$STATE_DIR/profile"
 PROFILE=""
 DRY_RUN=false
 CONFIGURE_FISH_ONLY=false
+CHECK_SYSTEM_ONLY=false
 VERBOSE=false
 OS=""
 DISTRO=""
@@ -30,6 +32,7 @@ usage() {
 Usage: ./install [profile] [--dry-run] [--verbose]
 
        ./install --configure-fish [--dry-run]
+       ./install [profile] --check-system
 
 Profiles: core, server, workstation, full
 Without a profile, install prompts interactively.
@@ -137,6 +140,20 @@ preflight() {
         ok 'Requirements: writable home and at least 512 MiB free'
     fi
     mosquera_ui_complete_section preflight passed
+}
+
+check_system_only() {
+    preflight
+    if [[ "${MOSQUERA_TUI_SUPPRESS_UI:-false}" == true ]]; then
+        printf 'OK %s\n' "$DISTRO"
+        printf 'OK %s\n' "$ARCH"
+        printf 'OK %s\n' "$PKG_MANAGER"
+        printf '%s\n' 'OK git'
+        printf '%s\n' 'OK curl'
+        printf '%s\n' 'OK network'
+        printf '%s\n' 'OK home'
+        printf '%s\n' 'OK disk'
+    fi
 }
 
 add_package() {
@@ -565,6 +582,7 @@ record_profile() {
 }
 
 main() {
+    local original_argc=$#
     while [[ $# -gt 0 ]]; do
         case "$1" in
             core|server|workstation|full)
@@ -574,11 +592,24 @@ main() {
             --dry-run) DRY_RUN=true ;;
             --verbose) VERBOSE=true ;;
             --configure-fish) CONFIGURE_FISH_ONLY=true ;;
+            --check-system) CHECK_SYSTEM_ONLY=true ;;
             -h|--help) usage; exit 0 ;;
             *) die "Unknown argument: $1" ;;
         esac
         shift
     done
+
+    if (( original_argc == 0 )) && [[ -t 0 && -t 1 && "$CONFIGURE_FISH_ONLY" == false && "$CHECK_SYSTEM_ONLY" == false && -z "$PROFILE" ]]; then
+        [[ -r "$TUI" ]] || die "TUI module missing: $TUI"
+        # shellcheck disable=SC1090
+        source "$TUI"
+        mosquera_tui_main
+        exit 0
+    fi
+
+    if [[ -z "$PROFILE" && ! -t 0 ]]; then
+        die 'A profile is required when install is run without an interactive terminal.'
+    fi
 
     if "$CONFIGURE_FISH_ONLY"; then
         [[ -z "$PROFILE" ]] || die '--configure-fish cannot be combined with a profile.'
@@ -592,6 +623,10 @@ main() {
     validate_profile
     detect_platform
     mosquera_ui_init install "$VERBOSE" "$DRY_RUN"
+    if "$CHECK_SYSTEM_ONLY"; then
+        check_system_only
+        exit 0
+    fi
     preflight
     resolve_profile
     mosquera_ui_status info install "profile $PROFILE"
