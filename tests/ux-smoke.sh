@@ -42,17 +42,28 @@ assert_contains "$TMP_DIR/failure.log" 'Last output:'
 
 printf 'q' | script -q "$TMP_DIR/tui-home.log" ./install >/dev/null 2>&1
 assert_contains "$TMP_DIR/tui-home.log" 'Environment'
-assert_contains "$TMP_DIR/tui-home.log" 'Select Profile'
-assert_contains "$TMP_DIR/tui-home.log" 'Check System'
+assert_contains "$TMP_DIR/tui-home.log" 'Seleccionar perfil'
+assert_contains "$TMP_DIR/tui-home.log" 'Comprobar sistema'
 assert_contains "$TMP_DIR/tui-home.log" '[?25h'
 
+printf 'q' | script -q "$TMP_DIR/tui-wide.log" env TMUX='' COLUMNS=140 ./install >/dev/null 2>&1
+assert_contains "$TMP_DIR/tui-wide.log" '███╗'
+assert_contains "$TMP_DIR/tui-wide.log" 'Environment'
+
+printf 'q' | script -q "$TMP_DIR/tui-narrow.log" env TMUX='' COLUMNS=80 ./install >/dev/null 2>&1
+assert_contains "$TMP_DIR/tui-narrow.log" 'MOSQUERA SOFT'
+if grep -Fq '███╗' "$TMP_DIR/tui-narrow.log"; then
+    printf 'Expected narrow TUI to use the compact banner.\n' >&2
+    exit 1
+fi
+
 printf 'p\033q' | script -q "$TMP_DIR/tui-profile.log" ./install >/dev/null 2>&1
-assert_contains "$TMP_DIR/tui-profile.log" 'Select Profile'
-assert_contains "$TMP_DIR/tui-profile.log" 'Complete development workstation'
+assert_contains "$TMP_DIR/tui-profile.log" 'Seleccionar perfil'
+assert_contains "$TMP_DIR/tui-profile.log" 'Estación completa de desarrollo'
 
 printf 'q' | script -q "$TMP_DIR/tui-check.log" bash -c 'ROOT_DIR="$PWD"; source ./lib/tui.sh; mosquera_tui_automated_demo check' >/dev/null 2>&1
-assert_contains "$TMP_DIR/tui-check.log" 'System Check'
-assert_contains "$TMP_DIR/tui-check.log" 'System ready.'
+assert_contains "$TMP_DIR/tui-check.log" 'Comprobación del sistema'
+assert_contains "$TMP_DIR/tui-check.log" 'Sistema listo.'
 
 script -q "$TMP_DIR/tty.log" ./install workstation --dry-run >/dev/null 2>&1
 assert_contains "$TMP_DIR/tty.log" 'MOSQUERA SOFT'

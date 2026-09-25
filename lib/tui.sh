@@ -7,6 +7,10 @@ MOSQUERA_TUI_MANAGER=""
 MOSQUERA_TUI_ARCH=""
 MOSQUERA_TUI_SELECTION=0
 MOSQUERA_TUI_ACTIVE=false
+readonly MOSQUERA_TUI_BANNER_WIDTH=112
+readonly MOSQUERA_TUI_BANNER_MARGIN=2
+MOSQUERA_TUI_WIDTH_SOURCE='fallback'
+MOSQUERA_TUI_LAYOUT_CENTER=0
 
 mosquera_tui_init() {
     MOSQUERA_TUI_SYSTEM="$(uname -s)"
@@ -44,9 +48,36 @@ mosquera_tui_exit() {
 }
 
 mosquera_tui_width() {
-    local width
-    width="$(tput cols 2>/dev/null || printf 80)"
-    [[ "$width" =~ ^[0-9]+$ ]] || width=80
+    local width tmux_width stty_size
+    if [[ -n "${TMUX:-}" ]] && command -v tmux >/dev/null 2>&1; then
+        tmux_width="$(tmux display-message -p '#{pane_width}' 2>/dev/null || true)"
+        if [[ "$tmux_width" =~ ^[1-9][0-9]*$ ]]; then
+            MOSQUERA_TUI_WIDTH_SOURCE='tmux'
+            printf '%s' "$tmux_width"
+            return
+        fi
+    fi
+    stty_size="$(stty size < /dev/tty 2>/dev/null || true)"
+    width="${stty_size##* }"
+    if [[ "$width" =~ ^[1-9][0-9]*$ ]]; then
+        MOSQUERA_TUI_WIDTH_SOURCE='stty'
+        printf '%s' "$width"
+        return
+    fi
+    width="$(tput cols 2>/dev/null || true)"
+    if [[ "$width" =~ ^[1-9][0-9]*$ ]]; then
+        MOSQUERA_TUI_WIDTH_SOURCE='tput'
+        printf '%s' "$width"
+        return
+    fi
+    width="${COLUMNS:-}"
+    if [[ "$width" =~ ^[1-9][0-9]*$ ]]; then
+        MOSQUERA_TUI_WIDTH_SOURCE='COLUMNS'
+        printf '%s' "$width"
+        return
+    fi
+    MOSQUERA_TUI_WIDTH_SOURCE='fallback'
+    width=80
     (( width >= 40 )) || width=40
     printf '%s' "$width"
 }
@@ -54,9 +85,31 @@ mosquera_tui_width() {
 mosquera_tui_center() {
     local text="$1" width padding
     width="$(mosquera_tui_width)"
-    padding=$(( (width - ${#text}) / 2 ))
+    mosquera_tui_layout_center "$width"
+    padding=$(( MOSQUERA_TUI_LAYOUT_CENTER - ${#text} / 2 ))
     (( padding > 0 )) || padding=0
     printf '%*s%s\n' "$padding" '' "$text"
+}
+
+mosquera_tui_layout_center() {
+    local width="$1" offset
+    offset=$(( width / 18 ))
+    (( offset > 12 )) && offset=12
+    MOSQUERA_TUI_LAYOUT_CENTER=$(( width / 2 + offset ))
+}
+
+mosquera_tui_block_line() {
+    local text="$1" block_width="$2" width padding
+    width="$(mosquera_tui_width)"
+    mosquera_tui_layout_center "$width"
+    padding=$(( MOSQUERA_TUI_LAYOUT_CENTER - block_width / 2 ))
+    (( padding > 0 )) || padding=0
+    printf '%*s%s\n' "$padding" '' "$text"
+}
+
+mosquera_tui_banner_fits() {
+    local width="$1"
+    (( width >= MOSQUERA_TUI_BANNER_WIDTH + MOSQUERA_TUI_BANNER_MARGIN ))
 }
 
 mosquera_tui_color() {
@@ -75,7 +128,7 @@ mosquera_tui_header() {
     local width
     width="$(mosquera_tui_width)"
     printf '\n\n'
-    if (( width >= 118 )); then
+    if mosquera_tui_banner_fits "$width"; then
         mosquera_tui_color '1;33'
         mosquera_tui_center '███╗   ███╗ ██████╗ ███████╗ ██████╗ ██╗   ██╗███████╗██████╗  █████╗   ███████╗ ██████╗ ███████╗████████╗'
         mosquera_tui_center '████╗ ████║██╔═══██╗██╔════╝██╔═══██╗██║   ██║██╔════╝██╔══██╗██╔══██╗  ██╔════╝██╔═══██╗██╔════╝╚══██╔══╝'
@@ -112,37 +165,46 @@ mosquera_tui_read_key() {
 }
 
 mosquera_tui_menu_item() {
-    local index="$1" key="$2" label="$3"
+    local index="$1" key="$2" label="$3" block_width="${4:-38}" marker=' '
+    (( MOSQUERA_TUI_SELECTION == index )) && marker='>'
     if (( MOSQUERA_TUI_SELECTION == index )); then
-        mosquera_tui_color '1;33'; mosquera_tui_center ">  $key    $label"; mosquera_tui_reset
+        mosquera_tui_color '1;33'; mosquera_tui_block_line "$marker  $key   $label" "$block_width"; mosquera_tui_reset
     else
-        mosquera_tui_center "   $key    $label"
+        mosquera_tui_block_line "$marker  $key   $label" "$block_width"
     fi
 }
 
 mosquera_tui_render_home() {
+    local width block_width=38
     mosquera_tui_clear
     mosquera_tui_header
-    mosquera_tui_color '1'; mosquera_tui_center 'Actions'; mosquera_tui_reset
-    printf '\n'
-    mosquera_tui_menu_item 0 i Install
-    mosquera_tui_menu_item 1 d 'Dry Run'
-    mosquera_tui_menu_item 2 p 'Select Profile'
-    mosquera_tui_menu_item 3 c 'Check System'
-    mosquera_tui_menu_item 4 h Help
-    mosquera_tui_menu_item 5 q Quit
+    width="$(mosquera_tui_width)"
+    mosquera_tui_layout_center "$width"
     printf '\n\n'
-    mosquera_tui_color '2'; mosquera_tui_center "Profile    $MOSQUERA_TUI_PROFILE"; mosquera_tui_center "Platform   $MOSQUERA_TUI_SYSTEM $MOSQUERA_TUI_ARCH"; mosquera_tui_center "Package    $MOSQUERA_TUI_MANAGER"; mosquera_tui_reset
+    mosquera_tui_color '1'; mosquera_tui_block_line 'Acciones' "$block_width"; mosquera_tui_reset
     printf '\n'
-    mosquera_tui_color '2'; mosquera_tui_center 'j/k or arrows navigate  |  Enter select  |  shortcut keys work anywhere'; mosquera_tui_reset
+    mosquera_tui_menu_item 0 i Instalar "$block_width"
+    mosquera_tui_menu_item 1 d Simulación "$block_width"
+    mosquera_tui_menu_item 2 p 'Seleccionar perfil' "$block_width"
+    mosquera_tui_menu_item 3 c 'Comprobar sistema' "$block_width"
+    mosquera_tui_menu_item 4 h Ayuda "$block_width"
+    mosquera_tui_menu_item 5 q Salir "$block_width"
+    printf '\n\n'
+    mosquera_tui_color '2'
+    mosquera_tui_block_line "Perfil       $MOSQUERA_TUI_PROFILE" "$block_width"
+    mosquera_tui_block_line "Plataforma   $MOSQUERA_TUI_SYSTEM $MOSQUERA_TUI_ARCH" "$block_width"
+    mosquera_tui_block_line "Gestor       $MOSQUERA_TUI_MANAGER" "$block_width"
+    mosquera_tui_reset
+    printf '\n\n'
+    mosquera_tui_color '2'; mosquera_tui_block_line 'j/k o flechas para navegar  |  Enter para seleccionar' "$block_width"; mosquera_tui_reset
 }
 
 mosquera_tui_profile_description() {
     case "$1" in
-        core) printf 'Terminal and essential environment' ;;
-        server) printf 'Headless server environment' ;;
-        workstation) printf 'Complete development workstation' ;;
-        full) printf 'Workstation plus graphical integrations' ;;
+        core) printf 'Terminal y entorno esencial' ;;
+        server) printf 'Entorno para servidores sin interfaz gráfica' ;;
+        workstation) printf 'Estación completa de desarrollo' ;;
+        full) printf 'Estación de trabajo e integraciones gráficas' ;;
     esac
 }
 
@@ -151,7 +213,7 @@ mosquera_tui_profile_screen() {
     for key in 0 1 2 3; do [[ "${profiles[$key]}" == "$MOSQUERA_TUI_PROFILE" ]] && selected="$key"; done
     while true; do
         mosquera_tui_clear; mosquera_tui_header
-        mosquera_tui_color '1'; mosquera_tui_center 'Select Profile'; mosquera_tui_reset
+        mosquera_tui_color '1'; mosquera_tui_center 'Seleccionar perfil'; mosquera_tui_reset
         printf '\n'
         for key in 0 1 2 3; do
             item="${profiles[$key]}"
@@ -159,7 +221,7 @@ mosquera_tui_profile_screen() {
             mosquera_tui_color '2'; mosquera_tui_center "   $(mosquera_tui_profile_description "$item")"; mosquera_tui_reset
             printf '\n'
         done
-        mosquera_tui_color '2'; mosquera_tui_center 'arrows/j/k navigate  |  Enter select  |  Esc back'; mosquera_tui_reset
+        mosquera_tui_color '2'; mosquera_tui_center 'flechas/j/k para navegar  |  Enter para seleccionar  |  Esc para volver'; mosquera_tui_reset
         case "$(mosquera_tui_read_key)" in
             up|k) selected=$(( (selected + 3) % 4 )) ;;
             down|j) selected=$(( (selected + 1) % 4 )) ;;
@@ -177,34 +239,38 @@ mosquera_tui_wait_back() {
 
 mosquera_tui_help_screen() {
     mosquera_tui_clear; mosquera_tui_header
-    mosquera_tui_color '1'; mosquera_tui_center 'Help'; mosquera_tui_reset
+    mosquera_tui_color '1'; mosquera_tui_center 'Ayuda'; mosquera_tui_reset
     printf '\n'
-    mosquera_tui_center 'i  Install after confirmation'
-    mosquera_tui_center 'd  Run a non-destructive dry run after confirmation'
-    mosquera_tui_center 'p  Select a session profile without installing'
-    mosquera_tui_center 'c  Check platform and prerequisites only'
-    mosquera_tui_center 'Doctor and Update remain available as ./doctor and ./update'
-    printf '\n'; mosquera_tui_color '2'; mosquera_tui_center 'Esc or q to return'; mosquera_tui_reset
+    mosquera_tui_center 'i  Instalar después de confirmar'
+    mosquera_tui_center 'd  Ejecutar una simulación no destructiva'
+    mosquera_tui_center 'p  Elegir un perfil para esta sesión sin instalar'
+    mosquera_tui_center 'c  Comprobar plataforma y requisitos'
+    mosquera_tui_center 'Doctor y Update siguen disponibles como ./doctor y ./update'
+    printf '\n'; mosquera_tui_color '2'; mosquera_tui_center 'Esc o q para volver'; mosquera_tui_reset
     mosquera_tui_wait_back
 }
 
 mosquera_tui_confirm_screen() {
     local mode="$1" prompt
-    [[ "$mode" == dry-run ]] && prompt='Start Dry Run' || prompt='Start Installation'
+    [[ "$mode" == dry-run ]] && prompt='Iniciar simulación' || prompt='Iniciar instalación'
     while true; do
         mosquera_tui_clear; mosquera_tui_header
-        mosquera_tui_color '1;33'; mosquera_tui_center "${mode//-/ }"; mosquera_tui_reset
+        if [[ "$mode" == dry-run ]]; then
+            mosquera_tui_color '1;33'; mosquera_tui_center 'Simulación'; mosquera_tui_reset
+        else
+            mosquera_tui_color '1;33'; mosquera_tui_center 'Listo para instalar'; mosquera_tui_reset
+        fi
         printf '\n'
-        mosquera_tui_center "Profile    $MOSQUERA_TUI_PROFILE"
-        mosquera_tui_center "Platform   $MOSQUERA_TUI_SYSTEM $MOSQUERA_TUI_ARCH"
-        mosquera_tui_center "Package    $MOSQUERA_TUI_MANAGER"
+        mosquera_tui_center "Perfil       $MOSQUERA_TUI_PROFILE"
+        mosquera_tui_center "Plataforma   $MOSQUERA_TUI_SYSTEM $MOSQUERA_TUI_ARCH"
+        mosquera_tui_center "Gestor       $MOSQUERA_TUI_MANAGER"
         printf '\n'
         if [[ "$mode" == dry-run ]]; then
-            mosquera_tui_center 'No system changes will be made.'
+            mosquera_tui_center 'No se realizarán cambios en el sistema.'
         else
-            mosquera_tui_center 'Mosquera Soft will verify, install, configure and validate this environment.'
+            mosquera_tui_center 'Mosquera Soft verificará, instalará, configurará y validará este entorno.'
         fi
-        printf '\n\n'; mosquera_tui_color '1'; mosquera_tui_center "Enter  $prompt"; mosquera_tui_reset; mosquera_tui_color '2'; mosquera_tui_center 'Esc  Cancel'; mosquera_tui_reset
+        printf '\n\n'; mosquera_tui_color '1'; mosquera_tui_center "Intro  $prompt"; mosquera_tui_reset; mosquera_tui_color '2'; mosquera_tui_center 'Esc  Cancelar'; mosquera_tui_reset
         case "$(mosquera_tui_read_key)" in enter) return 0 ;; esc|q) return 1 ;; esac
     done
 }
@@ -212,21 +278,21 @@ mosquera_tui_confirm_screen() {
 mosquera_tui_check_system() {
     local check_result=0 output
     mosquera_tui_clear; mosquera_tui_header
-    mosquera_tui_color '1'; mosquera_tui_center 'System Check'; mosquera_tui_reset
+    mosquera_tui_color '1'; mosquera_tui_center 'Comprobación del sistema'; mosquera_tui_reset
     printf '\n'
     output="$(MOSQUERA_TUI_CHECK_ONLY=true MOSQUERA_TUI_SUPPRESS_UI=true "$ROOT_DIR/install" "$MOSQUERA_TUI_PROFILE" --check-system 2>&1)" || check_result=$?
     if (( check_result == 0 )); then
-        mosquera_tui_center '+  Platform and architecture'
-        mosquera_tui_center '+  Package manager'
-        mosquera_tui_center '+  Git and curl'
-        mosquera_tui_center '+  Network access'
-        mosquera_tui_center '+  Home directory and disk space'
+        mosquera_tui_center '+  Plataforma y arquitectura'
+        mosquera_tui_center '+  Gestor de paquetes'
+        mosquera_tui_center '+  Git y curl'
+        mosquera_tui_center '+  Acceso de red'
+        mosquera_tui_center '+  Directorio personal y espacio disponible'
     else
         mosquera_tui_color '1;31'; mosquera_tui_center "${output##*$'\n'}"; mosquera_tui_reset
     fi
     printf '\n'
-    if (( check_result == 0 )); then mosquera_tui_color '1;32'; mosquera_tui_center 'System ready.'; mosquera_tui_reset; else mosquera_tui_color '1;31'; mosquera_tui_center 'System check failed.'; mosquera_tui_reset; fi
-    printf '\n'; mosquera_tui_color '2'; mosquera_tui_center 'Esc or q to return'; mosquera_tui_reset
+    if (( check_result == 0 )); then mosquera_tui_color '1;32'; mosquera_tui_center 'Sistema listo.'; mosquera_tui_reset; else mosquera_tui_color '1;31'; mosquera_tui_center 'La comprobación falló.'; mosquera_tui_reset; fi
+    printf '\n'; mosquera_tui_color '2'; mosquera_tui_center 'Esc o q para volver'; mosquera_tui_reset
     mosquera_tui_wait_back
 }
 
@@ -235,18 +301,18 @@ mosquera_tui_result_screen() {
     while true; do
         mosquera_tui_clear; mosquera_tui_header
         if [[ "$result" == success ]]; then
-            mosquera_tui_color '1;32'; title='READY'; message="$MOSQUERA_TUI_PROFILE environment installed successfully"; mosquera_tui_center "+  $title"; mosquera_tui_reset
+            mosquera_tui_color '1;32'; title='LISTO'; message="Entorno $MOSQUERA_TUI_PROFILE instalado correctamente"; mosquera_tui_center "+  $title"; mosquera_tui_reset
         elif [[ "$result" == dry-run ]]; then
-            mosquera_tui_color '1;33'; title='DRY RUN COMPLETE'; message='No changes were made.'; mosquera_tui_center "$title"; mosquera_tui_reset
+            mosquera_tui_color '1;33'; title='SIMULACIÓN COMPLETADA'; message='No se realizaron cambios.'; mosquera_tui_center "$title"; mosquera_tui_reset
         else
-            mosquera_tui_color '1;31'; title='FAILED'; message='Installation failed. Review the log before retrying.'; mosquera_tui_center "x  $title"; mosquera_tui_reset
+            mosquera_tui_color '1;31'; title='FALLÓ'; message='La instalación falló. Revisá el registro antes de reintentar.'; mosquera_tui_center "x  $title"; mosquera_tui_reset
         fi
         printf '\n'; mosquera_tui_center "$message"
-        [[ -n "$log" ]] && { printf '\n'; mosquera_tui_color '2'; mosquera_tui_center "Log  $log"; mosquera_tui_reset; }
+        [[ -n "$log" ]] && { printf '\n'; mosquera_tui_color '2'; mosquera_tui_center "Registro  $log"; mosquera_tui_reset; }
         printf '\n\n'
-        if [[ "$result" == success ]]; then mosquera_tui_center 'd  Run Doctor'; fi
-        [[ -n "$log" ]] && mosquera_tui_center 'l  View Log'
-        mosquera_tui_center 'q  Exit'
+        if [[ "$result" == success ]]; then mosquera_tui_center 'd  Ejecutar Doctor'; fi
+        [[ -n "$log" ]] && mosquera_tui_center 'l  Ver registro'
+        mosquera_tui_center 'q  Salir'
         key="$(mosquera_tui_read_key)"
         case "$key" in
             d) [[ "$result" == success ]] && "$ROOT_DIR/doctor" --profile "$MOSQUERA_TUI_PROFILE"; mosquera_tui_wait_back ;;
