@@ -41,7 +41,7 @@ assert_contains "$TMP_DIR/failure.log" '[FAIL] failure'
 assert_contains "$TMP_DIR/failure.log" 'Last output:'
 
 printf 'q' | script -q "$TMP_DIR/tui-home.log" ./install >/dev/null 2>&1
-assert_contains "$TMP_DIR/tui-home.log" 'Environment Installer'
+assert_contains "$TMP_DIR/tui-home.log" 'Environment'
 assert_contains "$TMP_DIR/tui-home.log" 'Select Profile'
 assert_contains "$TMP_DIR/tui-home.log" 'Check System'
 assert_contains "$TMP_DIR/tui-home.log" '[?25h'

@@ -75,18 +75,19 @@ mosquera_tui_header() {
     local width
     width="$(mosquera_tui_width)"
     printf '\n\n'
-    if (( width >= 84 )); then
+    if (( width >= 118 )); then
         mosquera_tui_color '1;33'
-        mosquera_tui_center ' __  __  ___  ____   ___  _   _ _____ ____      _     ____   ___  _____ _____ '
-        mosquera_tui_center '|  \/  |/ _ \/ ___| / _ \| | | | ____|  _ \    / \   / ___| / _ \|  ___|_   _|'
-        mosquera_tui_center '| |\/| | | | \___ \| | | | | | |  _| | |_) |  / _ \  \___ \| | | | |_    | |  '
-        mosquera_tui_center '| |  | | |_| |___) | |_| | |_| | |___|  _ <  / ___ \  ___) | |_| |  _|   | |  '
-        mosquera_tui_center '|_|  |_|\___/|____/ \__\_\\___/|_____|_| \_\/_/   \_\|____/ \___/|_|     |_|  '
+        mosquera_tui_center '███╗   ███╗ ██████╗ ███████╗ ██████╗ ██╗   ██╗███████╗██████╗  █████╗   ███████╗ ██████╗ ███████╗████████╗'
+        mosquera_tui_center '████╗ ████║██╔═══██╗██╔════╝██╔═══██╗██║   ██║██╔════╝██╔══██╗██╔══██╗  ██╔════╝██╔═══██╗██╔════╝╚══██╔══╝'
+        mosquera_tui_center '██╔████╔██║██║   ██║███████╗██║   ██║██║   ██║█████╗  ██████╔╝███████║  ███████╗██║   ██║█████╗     ██║'
+        mosquera_tui_center '██║╚██╔╝██║██║   ██║╚════██║██║▄▄ ██║██║   ██║██╔══╝  ██╔══██╗██╔══██║  ╚════██║██║   ██║██╔══╝     ██║'
+        mosquera_tui_center '██║ ╚═╝ ██║╚██████╔╝███████║╚██████╔╝╚██████╔╝███████╗██║  ██║██║  ██║  ███████║╚██████╔╝██║        ██║'
+        mosquera_tui_center '╚═╝     ╚═╝ ╚═════╝ ╚══════╝ ╚══▀▀═╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝  ╚══════╝ ╚═════╝ ╚═╝        ╚═╝'
         mosquera_tui_reset
     else
         mosquera_tui_color '1;33'; mosquera_tui_center 'MOSQUERA SOFT'; mosquera_tui_reset
     fi
-    mosquera_tui_color '2;36'; mosquera_tui_center 'Environment Installer'; mosquera_tui_reset
+    mosquera_tui_color '2;36'; mosquera_tui_center 'Environment'; mosquera_tui_reset
     printf '\n'
 }
 
