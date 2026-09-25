@@ -44,9 +44,13 @@ Actualiza los repositorios solo cuando sea seguro hacerlo:
 
 El [catalogo de dependencias](catalog/packages.toml) contiene el detalle de paquetes, mapeos por plataforma y notas de compatibilidad.
 
-## Capturas
+## Interfaz interactiva
 
-La UX se adapta al terminal: una TTY muestra marca, secciones y progreso; CI, SSH no interactivo, pipes y redirecciones usan lineas estables y sin ANSI.
+En una terminal interactiva, ejecutar `./install` abre HOME para elegir el perfil, revisar el sistema, simular la instalación o instalar después de confirmar. Se puede navegar con `j`/`k`, las flechas, `Enter` y los atajos mostrados en pantalla.
+
+![HOME interactiva de Mosquera Soft](docs/assets/installer-home.jpg)
+
+La UX se adapta al terminal: una TTY muestra marca, secciones y progreso; CI, SSH no interactivo, pipes y redirecciones usan líneas estables y sin ANSI. En terminales estrechas, el banner completo se reemplaza por una versión compacta.
 
 ```text
 MOSQUERA SOFT | install | macOS arm64 | brew | profile: workstation
@@ -57,7 +61,25 @@ DRY RUN: no changes will be made.
 [SKIP] verification - skipped in dry-run
 ```
 
-Las capturas reales se agregaran en `docs/assets/` cuando se generen en una terminal representativa. Este bloque corresponde a la salida real no interactiva de `./install workstation --dry-run`.
+Este bloque corresponde a la salida real no interactiva de `./install workstation --dry-run`.
+
+## Perfiles
+
+Un perfil define el alcance de paquetes y configuración que se instala. No es un modo temporal: el instalador guarda el perfil aplicado en el estado XDG para que `doctor` y `update` puedan validar y mantener el mismo entorno.
+
+| Perfil | Cuándo usarlo | Alcance |
+| --- | --- | --- |
+| `core` | Terminales básicas, servidores mínimos o punto de partida. | Herramientas esenciales de terminal, Fish, tmux, búsqueda, navegación, historial, Python y GitHub CLI. |
+| `server` | Hosts sin interfaz gráfica. | Base `core` sin autoarranque de tmux ni integraciones gráficas. |
+| `workstation` | Máquina principal de desarrollo. | `core` más Neovim, Node.js, herramientas de compilación, `chatsManager`, `tree` y `lsd`. |
+| `full` | Workstation Linux con entorno gráfico. | `workstation` más integración de portapapeles según Wayland o X11. |
+
+Elegí un perfil desde HOME con `p`, o indicalo de forma explícita:
+
+```bash
+./install workstation
+./install full --dry-run
+```
 
 ## Caracteristicas
 
@@ -74,7 +96,10 @@ Las capturas reales se agregaran en `docs/assets/` cuando se generen en una term
 ## Operaciones
 
 ```bash
-# Instalar un perfil; sin perfil solicita uno en TTY y usa core fuera de TTY.
+# Abrir HOME interactiva en una TTY.
+./install
+
+# Instalar un perfil de forma explícita.
 ./install workstation
 
 # Mostrar cada comando y su salida para diagnostico.
