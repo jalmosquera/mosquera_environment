@@ -1,0 +1,256 @@
+{
+  "Django Model": {
+    "prefix": "model",
+    "body": [
+      "class ${1:ModelName}(models.Model):",
+      "\t${2:# fields here}",
+      "",
+      "\tclass Meta:",
+      "\t\tverbose_name = \"${3:$1}\"",
+      "\t\tverbose_name_plural = \"${4:${3}s}\"",
+      "",
+      "\tdef __str__(self):",
+      "\t\treturn ${5:self.name}",
+      "$0"
+    ],
+    "description": "Django Model class with Meta and __str__"
+  },
+  "Django Model Full": {
+    "prefix": "model_full",
+    "body": [
+      "class ${1:ModelName}(models.Model):",
+      "\t${2:name} = models.CharField(max_length=${3:255})",
+      "\tcreated_at = models.DateTimeField(auto_now_add=True)",
+      "\tupdated_at = models.DateTimeField(auto_now=True)",
+      "",
+      "\tclass Meta:",
+      "\t\tverbose_name = \"${4:$1}\"",
+      "\t\tverbose_name_plural = \"${5:${4}s}\"",
+      "\t\tordering = [\"${6:-created_at}\"]",
+      "",
+      "\tdef __str__(self):",
+      "\t\treturn self.${2}",
+      "$0"
+    ],
+    "description": "Django Model with timestamps, Meta, and __str__"
+  },
+  "Django __str__": {
+    "prefix": "mstr",
+    "body": [
+      "def __str__(self):",
+      "\treturn ${1:self.name}",
+      "$0"
+    ],
+    "description": "Django Model __str__ method"
+  },
+  "Django Meta": {
+    "prefix": "mmeta",
+    "body": [
+      "class Meta:",
+      "\tverbose_name = \"${1:name}\"",
+      "\tverbose_name_plural = \"${2:${1}s}\"",
+      "\tordering = [\"${3:-created_at}\"]",
+      "$0"
+    ],
+    "description": "Django Model Meta class"
+  },
+  "Django Manager": {
+    "prefix": "mmanager",
+    "body": [
+      "class ${1:Custom}Manager(models.Manager):",
+      "\tdef get_queryset(self):",
+      "\t\treturn super().get_queryset().filter(${2:is_active=True})",
+      "$0"
+    ],
+    "description": "Django custom Manager"
+  },
+  "Django QuerySet": {
+    "prefix": "mqueryset",
+    "body": [
+      "class ${1:Custom}QuerySet(models.QuerySet):",
+      "\tdef ${2:active}(self):",
+      "\t\treturn self.filter(${3:is_active=True})",
+      "$0"
+    ],
+    "description": "Django custom QuerySet"
+  },
+  "Django get_absolute_url": {
+    "prefix": "get_absolute_url",
+    "body": [
+      "def get_absolute_url(self):",
+      "\treturn reverse(\"${1:model_detail}\", kwargs={\"${2:pk}\": self.${2}})",
+      "$0"
+    ],
+    "description": "Django get_absolute_url method"
+  },
+  "Django Signal": {
+    "prefix": "msignal",
+    "body": [
+      "@receiver(${1:post_save}, sender=${2:ModelName})",
+      "def ${3:signal_handler}(sender, instance, ${4:created}, **kwargs):",
+      "\t${5:pass}",
+      "$0"
+    ],
+    "description": "Django signal receiver"
+  },
+  "Django AutoField": {
+    "prefix": "mauto",
+    "body": "${1:FIELDNAME} = models.AutoField(primary_key=True)$0",
+    "description": "Django AutoField"
+  },
+  "Django BigAutoField": {
+    "prefix": "mbigauto",
+    "body": "${1:FIELDNAME} = models.BigAutoField(primary_key=True)$0",
+    "description": "Django BigAutoField"
+  },
+  "Django SmallAutoField": {
+    "prefix": "msmallauto",
+    "body": "${1:FIELDNAME} = models.SmallAutoField(primary_key=True)$0",
+    "description": "Django SmallAutoField"
+  },
+  "Django BigIntegerField": {
+    "prefix": "mbigint",
+    "body": "${1:FIELDNAME} = models.BigIntegerField(${2:default=0})$0",
+    "description": "Django BigIntegerField"
+  },
+  "Django BooleanField": {
+    "prefix": "mbool",
+    "body": "${1:FIELDNAME} = models.BooleanField(default=${2:False})$0",
+    "description": "Django BooleanField"
+  },
+  "Django CharField": {
+    "prefix": "mchar",
+    "body": "${1:FIELDNAME} = models.CharField(max_length=${2:255}${3:, blank=True})$0",
+    "description": "Django CharField"
+  },
+  "Django DateField": {
+    "prefix": "mdate",
+    "body": "${1:FIELDNAME} = models.DateField(${2:auto_now_add=True})$0",
+    "description": "Django DateField"
+  },
+  "Django DateTimeField": {
+    "prefix": "mdatetime",
+    "body": "${1:FIELDNAME} = models.DateTimeField(${2:auto_now_add=True})$0",
+    "description": "Django DateTimeField"
+  },
+  "Django DecimalField": {
+    "prefix": "mdecimal",
+    "body": "${1:FIELDNAME} = models.DecimalField(max_digits=${2:10}, decimal_places=${3:2})$0",
+    "description": "Django DecimalField"
+  },
+  "Django EmailField": {
+    "prefix": "memail",
+    "body": "${1:FIELDNAME} = models.EmailField(max_length=${2:254}${3:, blank=True})$0",
+    "description": "Django EmailField"
+  },
+  "Django FileField": {
+    "prefix": "mfile",
+    "body": "${1:FIELDNAME} = models.FileField(upload_to=\"${2:uploads/}\"${3:, blank=True})$0",
+    "description": "Django FileField"
+  },
+  "Django FilePathField": {
+    "prefix": "mfilepath",
+    "body": "${1:FIELDNAME} = models.FilePathField(path=\"${2:/tmp}\")$0",
+    "description": "Django FilePathField"
+  },
+  "Django FloatField": {
+    "prefix": "mfloat",
+    "body": "${1:FIELDNAME} = models.FloatField(${2:default=0.0})$0",
+    "description": "Django FloatField"
+  },
+  "Django IntegerField": {
+    "prefix": "mint",
+    "body": "${1:FIELDNAME} = models.IntegerField(${2:default=0})$0",
+    "description": "Django IntegerField"
+  },
+  "Django ImageField": {
+    "prefix": "mimg",
+    "body": "${1:FIELDNAME} = models.ImageField(upload_to=\"${2:images/}\"${3:, blank=True})$0",
+    "description": "Django ImageField"
+  },
+  "Django GenericIPAddressField": {
+    "prefix": "mip",
+    "body": "${1:FIELDNAME} = models.GenericIPAddressField(${2:protocol=\"both\"})$0",
+    "description": "Django GenericIPAddressField"
+  },
+  "Django JSONField": {
+    "prefix": "mjson",
+    "body": "${1:FIELDNAME} = models.JSONField(${2:default=dict}${3:, blank=True})$0",
+    "description": "Django JSONField"
+  },
+  "Django PositiveIntegerField": {
+    "prefix": "mposint",
+    "body": "${1:FIELDNAME} = models.PositiveIntegerField(${2:default=0})$0",
+    "description": "Django PositiveIntegerField"
+  },
+  "Django SlugField": {
+    "prefix": "mslug",
+    "body": "${1:FIELDNAME} = models.SlugField(max_length=${2:255}${3:, unique=True})$0",
+    "description": "Django SlugField"
+  },
+  "Django SmallIntegerField": {
+    "prefix": "msmallint",
+    "body": "${1:FIELDNAME} = models.SmallIntegerField(${2:default=0})$0",
+    "description": "Django SmallIntegerField"
+  },
+  "Django TextField": {
+    "prefix": "mtext",
+    "body": "${1:FIELDNAME} = models.TextField(${2:blank=True})$0",
+    "description": "Django TextField"
+  },
+  "Django TimeField": {
+    "prefix": "mtime",
+    "body": "${1:FIELDNAME} = models.TimeField(${2:auto_now_add=True})$0",
+    "description": "Django TimeField"
+  },
+  "Django URLField": {
+    "prefix": "murl",
+    "body": "${1:FIELDNAME} = models.URLField(max_length=${2:200}${3:, blank=True})$0",
+    "description": "Django URLField"
+  },
+  "Django UUIDField": {
+    "prefix": "muuid",
+    "body": "${1:FIELDNAME} = models.UUIDField(default=uuid.uuid4, editable=False${2:, unique=True})$0",
+    "description": "Django UUIDField"
+  },
+  "Django BinaryField": {
+    "prefix": "mbin",
+    "body": "${1:FIELDNAME} = models.BinaryField(${2:editable=False})$0",
+    "description": "Django BinaryField"
+  },
+  "Django DurationField": {
+    "prefix": "mdur",
+    "body": "${1:FIELDNAME} = models.DurationField($1)$0",
+    "description": "Django DurationField"
+  },
+  "Django ForeignKey": {
+    "prefix": "fk",
+    "body": "${1:FIELDNAME} = models.ForeignKey(\"${2:ModelName}\", on_delete=models.${3|CASCADE,PROTECT,SET_NULL,SET_DEFAULT,DO_NOTHING|}${4:, related_name=\"${5:$1s}\"})$0",
+    "description": "Django ForeignKey"
+  },
+  "Django ManyToManyField": {
+    "prefix": "m2m",
+    "body": "${1:FIELDNAME} = models.ManyToManyField(\"${2:ModelName}\"${3:, related_name=\"${4:$1s}\"}${5:, blank=True})$0",
+    "description": "Django ManyToManyField"
+  },
+  "Django OneToOneField": {
+    "prefix": "o2o",
+    "body": "${1:FIELDNAME} = models.OneToOneField(\"${2:ModelName}\", on_delete=models.${3|CASCADE,PROTECT,SET_NULL|}${4:, related_name=\"${5:$1}\"})$0",
+    "description": "Django OneToOneField"
+  },
+  "Django ArrayField (PostgreSQL)": {
+    "prefix": "marray",
+    "body": "${1:FIELDNAME} = ArrayField(models.${2:CharField}(max_length=${3:255}), ${4:default=list}${5:, blank=True})$0",
+    "description": "Django PostgreSQL ArrayField"
+  },
+  "Django HStoreField (PostgreSQL)": {
+    "prefix": "mhstore",
+    "body": "${1:FIELDNAME} = HStoreField(${2:default=dict})$0",
+    "description": "Django PostgreSQL HStoreField"
+  },
+  "Django JSONField PostgreSQL": {
+    "prefix": "mjsonb",
+    "body": "${1:FIELDNAME} = models.JSONField(${2:default=dict}${3:, encoder=DjangoJSONEncoder})$0",
+    "description": "Django JSONField with custom encoder"
+  }
+}

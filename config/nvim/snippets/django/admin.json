@@ -1,0 +1,87 @@
+{
+  "Django ModelAdmin": {
+    "prefix": "adminview",
+    "body": [
+      "class ${1:ModelName}Admin(admin.ModelAdmin):",
+      "\tlist_display = [${2:\"__str__\"}]",
+      "\tlist_filter = [${3}]",
+      "\tsearch_fields = [${4}]",
+      "\tordering = [${5:\"-created_at\"}]",
+      "$0"
+    ],
+    "description": "Django ModelAdmin class"
+  },
+  "Django StackedInline": {
+    "prefix": "stackedinline",
+    "body": [
+      "class ${1:ModelName}Inline(admin.StackedInline):",
+      "\tmodel = ${2:$1}",
+      "\textra = ${3:1}",
+      "$0"
+    ],
+    "description": "Django StackedInline"
+  },
+  "Django TabularInline": {
+    "prefix": "tabularinline",
+    "body": [
+      "class ${1:ModelName}Inline(admin.TabularInline):",
+      "\tmodel = ${2:$1}",
+      "\textra = ${3:1}",
+      "$0"
+    ],
+    "description": "Django TabularInline"
+  },
+  "Django SimpleListFilter": {
+    "prefix": "simplelistfilter",
+    "body": [
+      "class ${1:FilterName}Filter(admin.SimpleListFilter):",
+      "\ttitle = \"${2:$1}\"",
+      "\tparameter_name = \"${3:param}\"",
+      "",
+      "\tdef lookups(self, request, model_admin):",
+      "\t\treturn [",
+      "\t\t\t(\"${4:value}\", \"${5:Label}\"),",
+      "\t\t]",
+      "",
+      "\tdef queryset(self, request, queryset):",
+      "\t\tif self.value() == \"${4}\":",
+      "\t\t\treturn queryset.filter(${6:field=value})",
+      "\t\treturn queryset",
+      "$0"
+    ],
+    "description": "Django SimpleListFilter"
+  },
+  "Django register": {
+    "prefix": "register",
+    "body": "admin.site.register(${1:ModelName})$0",
+    "description": "Django admin.site.register"
+  },
+  "Django register with ModelAdmin": {
+    "prefix": "registermadmin",
+    "body": [
+      "@admin.register(${1:ModelName})",
+      "class ${1}Admin(admin.ModelAdmin):",
+      "\tlist_display = [${2:\"__str__\"}]",
+      "\tlist_filter = [${3}]",
+      "\tsearch_fields = [${4}]",
+      "$0"
+    ],
+    "description": "Django @admin.register with ModelAdmin"
+  },
+  "Django fieldsets": {
+    "prefix": "fieldsets",
+    "body": [
+      "fieldsets = [",
+      "\t(None, {",
+      "\t\t\"fields\": [${1}],",
+      "\t}),",
+      "\t(\"${2:Section}\", {",
+      "\t\t\"classes\": [\"${3:collapse}\"],",
+      "\t\t\"fields\": [${4}],",
+      "\t}),",
+      "]",
+      "$0"
+    ],
+    "description": "Django admin fieldsets"
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "Django Function-Based View": {
+    "prefix": "fbv",
+    "body": [
+      "def ${1:view_name}(request):",
+      "\tif request.method == \"POST\":",
+      "\t\t${2:# handle POST}",
+      "\t\tpass",
+      "\tcontext = {${3}}",
+      "\treturn render(request, \"${4:template.html}\", context)",
+      "$0"
+    ],
+    "description": "Django function-based view"
+  },
+  "Django CreateView": {
+    "prefix": "createview",
+    "body": [
+      "class ${1:ModelName}CreateView(CreateView):",
+      "\tmodel = ${2:$1}",
+      "\tfields = [${3:\"__all__\"}]",
+      "\ttemplate_name = \"${4:$2_form.html}\"",
+      "\tsuccess_url = reverse_lazy(\"${5:$2_list}\")",
+      "$0"
+    ],
+    "description": "Django CreateView"
+  },
+  "Django ListView": {
+    "prefix": "listview",
+    "body": [
+      "class ${1:ModelName}ListView(ListView):",
+      "\tmodel = ${2:$1}",
+      "\ttemplate_name = \"${3:$2_list.html}\"",
+      "\tcontext_object_name = \"${4:items}\"",
+      "\tpaginate_by = ${5:25}",
+      "$0"
+    ],
+    "description": "Django ListView"
+  },
+  "Django DetailView": {
+    "prefix": "detailview",
+    "body": [
+      "class ${1:ModelName}DetailView(DetailView):",
+      "\tmodel = ${2:$1}",
+      "\ttemplate_name = \"${3:$2_detail.html}\"",
+      "\tcontext_object_name = \"${4:item}\"",
+      "$0"
+    ],
+    "description": "Django DetailView"
+  },
+  "Django UpdateView": {
+    "prefix": "updateview",
+    "body": [
+      "class ${1:ModelName}UpdateView(UpdateView):",
+      "\tmodel = ${2:$1}",
+      "\tfields = [${3:\"__all__\"}]",
+      "\ttemplate_name = \"${4:$2_form.html}\"",
+      "\tsuccess_url = reverse_lazy(\"${5:$2_list}\")",
+      "$0"
+    ],
+    "description": "Django UpdateView"
+  },
+  "Django DeleteView": {
+    "prefix": "deleteview",
+    "body": [
+      "class ${1:ModelName}DeleteView(DeleteView):",
+      "\tmodel = ${2:$1}",
+      "\ttemplate_name = \"${3:$2_confirm_delete.html}\"",
+      "\tsuccess_url = reverse_lazy(\"${4:$2_list}\")",
+      "$0"
+    ],
+    "description": "Django DeleteView"
+  },
+  "Django TemplateView": {
+    "prefix": "templateview",
+    "body": [
+      "class ${1:PageName}View(TemplateView):",
+      "\ttemplate_name = \"${2:page.html}\"",
+      "",
+      "\tdef get_context_data(self, **kwargs):",
+      "\t\tcontext = super().get_context_data(**kwargs)",
+      "\t\t${3:# add context}",
+      "\t\treturn context",
+      "$0"
+    ],
+    "description": "Django TemplateView"
+  },
+  "Django RedirectView": {
+    "prefix": "redirectview",
+    "body": [
+      "class ${1:ViewName}(RedirectView):",
+      "\tpattern_name = \"${2:target_url_name}\"",
+      "\tpermanent = ${3:False}",
+      "$0"
+    ],
+    "description": "Django RedirectView"
+  },
+  "Django FormView": {
+    "prefix": "formview",
+    "body": [
+      "class ${1:ViewName}(FormView):",
+      "\tform_class = ${2:FormName}",
+      "\ttemplate_name = \"${3:form.html}\"",
+      "\tsuccess_url = reverse_lazy(\"${4:success}\")",
+      "",
+      "\tdef form_valid(self, form):",
+      "\t\t${5:# process form}",
+      "\t\treturn super().form_valid(form)",
+      "$0"
+    ],
+    "description": "Django FormView"
+  },
+  "Django dispatch": {
+    "prefix": "dispatch",
+    "body": [
+      "def dispatch(self, request, *args, **kwargs):",
+      "\t${1:# pre-processing}",
+      "\treturn super().dispatch(request, *args, **kwargs)",
+      "$0"
+    ],
+    "description": "Django dispatch method override"
+  },
+  "Django get_context_data": {
+    "prefix": "get_context_data",
+    "body": [
+      "def get_context_data(self, **kwargs):",
+      "\tcontext = super().get_context_data(**kwargs)",
+      "\tcontext[\"${1:key}\"] = ${2:value}",
+      "\treturn context",
+      "$0"
+    ],
+    "description": "Django get_context_data method"
+  },
+  "Django get_queryset": {
+    "prefix": "get_queryset",
+    "body": [
+      "def get_queryset(self):",
+      "\treturn super().get_queryset().filter(${1:is_active=True})",
+      "$0"
+    ],
+    "description": "Django get_queryset method"
+  },
+  "Django get_success_url": {
+    "prefix": "get_success_url",
+    "body": [
+      "def get_success_url(self):",
+      "\treturn reverse(\"${1:url_name}\", kwargs={\"${2:pk}\": self.object.${2}})",
+      "$0"
+    ],
+    "description": "Django get_success_url method"
+  },
+  "Django form_valid": {
+    "prefix": "form_valid",
+    "body": [
+      "def form_valid(self, form):",
+      "\t${1:form.instance.user = self.request.user}",
+      "\treturn super().form_valid(form)",
+      "$0"
+    ],
+    "description": "Django form_valid method"
+  },
+  "Django form_invalid": {
+    "prefix": "form_invalid",
+    "body": [
+      "def form_invalid(self, form):",
+      "\t${1:# handle invalid form}",
+      "\treturn super().form_invalid(form)",
+      "$0"
+    ],
+    "description": "Django form_invalid method"
+  },
+  "DRF APIView": {
+    "prefix": "apiview",
+    "body": [
+      "class ${1:ViewName}(APIView):",
+      "\t${2:permission_classes = [IsAuthenticated]}",
+      "",
+      "\tdef get(self, request):",
+      "\t\t${3:# handle GET}",
+      "\t\treturn Response({${4}}, status=status.HTTP_200_OK)",
+      "",
+      "\tdef post(self, request):",
+      "\t\t${5:# handle POST}",
+      "\t\treturn Response({${6}}, status=status.HTTP_201_CREATED)",
+      "$0"
+    ],
+    "description": "DRF APIView"
+  },
+  "DRF Serializer": {
+    "prefix": "serializer",
+    "body": [
+      "class ${1:Name}Serializer(serializers.Serializer):",
+      "\t${2:field_name} = serializers.${3:CharField}(${4:max_length=255})",
+      "",
+      "\tdef validate(self, attrs):",
+      "\t\t${5:# validation logic}",
+      "\t\treturn attrs",
+      "",
+      "\tdef create(self, validated_data):",
+      "\t\treturn ${6:Model}.objects.create(**validated_data)",
+      "$0"
+    ],
+    "description": "DRF Serializer"
+  },
+  "DRF ModelSerializer": {
+    "prefix": "modelserializer",
+    "body": [
+      "class ${1:ModelName}Serializer(serializers.ModelSerializer):",
+      "\tclass Meta:",
+      "\t\tmodel = ${2:$1}",
+      "\t\tfields = [${3:\"__all__\"}]",
+      "\t\t${4:read_only_fields = [\"id\", \"created_at\"]}",
+      "$0"
+    ],
+    "description": "DRF ModelSerializer"
+  },
+  "DRF ViewSet": {
+    "prefix": "viewset",
+    "body": [
+      "class ${1:Name}ViewSet(viewsets.ViewSet):",
+      "\t${2:permission_classes = [IsAuthenticated]}",
+      "",
+      "\tdef list(self, request):",
+      "\t\t${3:queryset = $4.objects.all()}",
+      "\t\tserializer = ${5:Serializer}(${3:queryset}, many=True)",
+      "\t\treturn Response(serializer.data)",
+      "",
+      "\tdef retrieve(self, request, pk=None):",
+      "\t\t${6:instance = get_object_or_404($4, pk=pk)}",
+      "\t\tserializer = ${5}(${6:instance})",
+      "\t\treturn Response(serializer.data)",
+      "$0"
+    ],
+    "description": "DRF ViewSet"
+  },
+  "DRF ModelViewSet": {
+    "prefix": "modelviewset",
+    "body": [
+      "class ${1:ModelName}ViewSet(viewsets.ModelViewSet):",
+      "\tqueryset = ${2:$1}.objects.all()",
+      "\tserializer_class = ${3:$1Serializer}",
+      "\t${4:permission_classes = [IsAuthenticated]}",
+      "$0"
+    ],
+    "description": "DRF ModelViewSet"
+  }
+}

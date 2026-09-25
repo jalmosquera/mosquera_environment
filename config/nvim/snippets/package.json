@@ -1,0 +1,27 @@
+{
+  "name": "django-snippets",
+  "contributes": {
+    "snippets": [
+      {
+        "language": "python",
+        "path": "./django/models.json"
+      },
+      {
+        "language": "python",
+        "path": "./django/forms.json"
+      },
+      {
+        "language": "python",
+        "path": "./django/views.json"
+      },
+      {
+        "language": "python",
+        "path": "./django/admin.json"
+      },
+      {
+        "language": "python",
+        "path": "./django/urls.json"
+      }
+    ]
+  }
+}

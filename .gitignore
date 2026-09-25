@@ -1,0 +1,17 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+*.local
+*.local.*
+*.bak
+*.tmp
+*.swp
+**/.cache/
+**/.venv/
+**/__pycache__/
+**/spell/*.spl
+**/lazy/
+**/mason/
+**/state/
+**/undo/

@@ -1,0 +1,156 @@
+{
+  "Django Form": {
+    "prefix": "form",
+    "body": [
+      "class ${1:FormName}(forms.Form):",
+      "\t${2:field_name} = forms.CharField(max_length=${3:255})",
+      "",
+      "\tdef clean(self):",
+      "\t\tcleaned_data = super().clean()",
+      "\t\t${4:# validation logic}",
+      "\t\treturn cleaned_data",
+      "$0"
+    ],
+    "description": "Django Form class"
+  },
+  "Django ModelForm": {
+    "prefix": "modelform",
+    "body": [
+      "class ${1:ModelName}Form(forms.ModelForm):",
+      "\tclass Meta:",
+      "\t\tmodel = ${2:ModelName}",
+      "\t\tfields = [${3:\"__all__\"}]",
+      "\t\t${4:widgets = {\\}}",
+      "$0"
+    ],
+    "description": "Django ModelForm class"
+  },
+  "Django clean_field": {
+    "prefix": "clean_field",
+    "body": [
+      "def clean_${1:field_name}(self):",
+      "\t${1} = self.cleaned_data.get(\"${1}\")",
+      "\tif ${2:not $1}:",
+      "\t\traise forms.ValidationError(\"${3:Invalid value.}\")",
+      "\treturn ${1}",
+      "$0"
+    ],
+    "description": "Django form clean_<field> method"
+  },
+  "Django clean": {
+    "prefix": "clean",
+    "body": [
+      "def clean(self):",
+      "\tcleaned_data = super().clean()",
+      "\t${1:# cross-field validation}",
+      "\treturn cleaned_data",
+      "$0"
+    ],
+    "description": "Django form clean method"
+  },
+  "Django BooleanField (form)": {
+    "prefix": "fbool",
+    "body": "${1:FIELDNAME} = forms.BooleanField(${2:required=False})$0",
+    "description": "Django form BooleanField"
+  },
+  "Django CharField (form)": {
+    "prefix": "fchar",
+    "body": "${1:FIELDNAME} = forms.CharField(max_length=${2:255}${3:, required=True})$0",
+    "description": "Django form CharField"
+  },
+  "Django ChoiceField (form)": {
+    "prefix": "fchoice",
+    "body": "${1:FIELDNAME} = forms.ChoiceField(choices=${2:CHOICES}${3:, required=True})$0",
+    "description": "Django form ChoiceField"
+  },
+  "Django DateField (form)": {
+    "prefix": "fdate",
+    "body": "${1:FIELDNAME} = forms.DateField(${2:widget=forms.DateInput(attrs={\"type\": \"date\"})})$0",
+    "description": "Django form DateField"
+  },
+  "Django DateTimeField (form)": {
+    "prefix": "fdatetime",
+    "body": "${1:FIELDNAME} = forms.DateTimeField(${2:widget=forms.DateTimeInput(attrs={\"type\": \"datetime-local\"})})$0",
+    "description": "Django form DateTimeField"
+  },
+  "Django DecimalField (form)": {
+    "prefix": "fdecimal",
+    "body": "${1:FIELDNAME} = forms.DecimalField(max_digits=${2:10}, decimal_places=${3:2})$0",
+    "description": "Django form DecimalField"
+  },
+  "Django EmailField (form)": {
+    "prefix": "femail",
+    "body": "${1:FIELDNAME} = forms.EmailField(max_length=${2:254}${3:, required=True})$0",
+    "description": "Django form EmailField"
+  },
+  "Django FileField (form)": {
+    "prefix": "ffile",
+    "body": "${1:FIELDNAME} = forms.FileField(${2:required=True})$0",
+    "description": "Django form FileField"
+  },
+  "Django FloatField (form)": {
+    "prefix": "ffloat",
+    "body": "${1:FIELDNAME} = forms.FloatField(${2:required=True})$0",
+    "description": "Django form FloatField"
+  },
+  "Django IntegerField (form)": {
+    "prefix": "fint",
+    "body": "${1:FIELDNAME} = forms.IntegerField(${2:required=True})$0",
+    "description": "Django form IntegerField"
+  },
+  "Django ImageField (form)": {
+    "prefix": "fimg",
+    "body": "${1:FIELDNAME} = forms.ImageField(${2:required=False})$0",
+    "description": "Django form ImageField"
+  },
+  "Django GenericIPAddressField (form)": {
+    "prefix": "fip",
+    "body": "${1:FIELDNAME} = forms.GenericIPAddressField(${2:protocol=\"both\"})$0",
+    "description": "Django form GenericIPAddressField"
+  },
+  "Django JSONField (form)": {
+    "prefix": "fjson",
+    "body": "${1:FIELDNAME} = forms.JSONField(${2:required=False})$0",
+    "description": "Django form JSONField"
+  },
+  "Django ModelChoiceField": {
+    "prefix": "fmochoice",
+    "body": "${1:FIELDNAME} = forms.ModelChoiceField(queryset=${2:ModelName}.objects.${3:all}())$0",
+    "description": "Django form ModelChoiceField"
+  },
+  "Django ModelMultipleChoiceField": {
+    "prefix": "fmomultiple",
+    "body": "${1:FIELDNAME} = forms.ModelMultipleChoiceField(queryset=${2:ModelName}.objects.${3:all}())$0",
+    "description": "Django form ModelMultipleChoiceField"
+  },
+  "Django MultipleChoiceField": {
+    "prefix": "fmultiple",
+    "body": "${1:FIELDNAME} = forms.MultipleChoiceField(choices=${2:CHOICES}${3:, required=True})$0",
+    "description": "Django form MultipleChoiceField"
+  },
+  "Django SlugField (form)": {
+    "prefix": "fslug",
+    "body": "${1:FIELDNAME} = forms.SlugField(max_length=${2:255}${3:, required=True})$0",
+    "description": "Django form SlugField"
+  },
+  "Django TimeField (form)": {
+    "prefix": "ftime",
+    "body": "${1:FIELDNAME} = forms.TimeField(${2:widget=forms.TimeInput(attrs={\"type\": \"time\"})})$0",
+    "description": "Django form TimeField"
+  },
+  "Django TypedChoiceField": {
+    "prefix": "ftypedchoice",
+    "body": "${1:FIELDNAME} = forms.TypedChoiceField(choices=${2:CHOICES}, coerce=${3:int})$0",
+    "description": "Django form TypedChoiceField"
+  },
+  "Django URLField (form)": {
+    "prefix": "furl",
+    "body": "${1:FIELDNAME} = forms.URLField(max_length=${2:200}${3:, required=True})$0",
+    "description": "Django form URLField"
+  },
+  "Django UUIDField (form)": {
+    "prefix": "fuuid",
+    "body": "${1:FIELDNAME} = forms.UUIDField(${2:required=True})$0",
+    "description": "Django form UUIDField"
+  }
+}
