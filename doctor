@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# Read-only health checks for Mosquera Soft Environment.
+set -uo pipefail
+
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly CHATSMANAGER_DIR="$HOME/.cheatsheets"
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
+readonly PROFILE_FILE="$STATE_DIR/profile"
+
+PROFILE=""
+OS=""
+DISTRO=""
+ARCH=""
+PKG_MANAGER=""
+ERRORS=0
+WARNINGS=0
+
+usage() {
+    cat <<'EOF'
+Usage: ./doctor [--profile core|server|workstation|full]
+
+Reads the installed profile from XDG state when available. Without state or an
+explicit profile, doctor runs core checks and reports a warning.
+EOF
+}
+
+ok() { printf '✓ %-18s %s\n' "$1" "$2"; }
+warn() { printf '⚠ %-18s %s\n' "$1" "$2"; WARNINGS=$((WARNINGS + 1)); }
+error() { printf '✗ %-18s %s\n' "$1" "$2"; ERRORS=$((ERRORS + 1)); }
+skip() { printf '○ %-18s %s\n' "$1" "$2"; }
+
+command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+detect_platform() {
+    OS="$(uname -s)"
+    ARCH="$(uname -m)"
+    case "$OS" in
+        Darwin)
+            DISTRO="macOS"
+            PKG_MANAGER="brew"
+            ;;
+        Linux)
+            if [[ ! -r /etc/os-release ]]; then
+                error Platform 'cannot read /etc/os-release'
+                return
+            fi
+            # shellcheck disable=SC1091
+            . /etc/os-release
+            DISTRO="${PRETTY_NAME:-${ID:-Linux}}"
+            case "${ID:-}" in
+                arch|manjaro|endeavouros) PKG_MANAGER="pacman" ;;
+                debian|ubuntu|linuxmint|pop) PKG_MANAGER="apt" ;;
+                opensuse*|sles) PKG_MANAGER="zypper" ;;
+                *) PKG_MANAGER="unsupported" ;;
+            esac
+            ;;
+        *)
+            DISTRO="$OS"
+            PKG_MANAGER="unsupported"
+            ;;
+    esac
+}
+
+load_profile() {
+    if [[ -n "$PROFILE" ]]; then
+        return
+    fi
+    if [[ -r "$PROFILE_FILE" ]]; then
+        IFS= read -r PROFILE < "$PROFILE_FILE" || true
+    fi
+    if [[ -z "$PROFILE" ]]; then
+        PROFILE="core"
+        warn Profile 'unknown; running core checks (pass --profile to override)'
+    fi
+}
+
+validate_profile() {
+    case "$PROFILE" in
+        core|server|workstation|full) ;;
+        *) error Profile "invalid value: $PROFILE"; PROFILE="core" ;;
+    esac
+}
+
+run_check() {
+    local label="$1"
+    shift
+    if "$@" >/dev/null 2>&1; then
+        ok "$label" 'OK'
+    else
+        error "$label" 'check failed'
+    fi
+}
+
+run_command_check() {
+    local label="$1"
+    local command="$2"
+    shift 2
+    if ! command_exists "$command"; then
+        error "$label" "missing command: $command"
+        return
+    fi
+    run_check "$label" "$command" "$@"
+}
+
+check_platform() {
+    if [[ "$PKG_MANAGER" == unsupported ]]; then
+        error Platform "$DISTRO ($ARCH) is unsupported"
+    elif command_exists "$PKG_MANAGER"; then
+        ok Platform "$DISTRO, $ARCH, $PKG_MANAGER"
+    else
+        error Platform "$DISTRO detected but $PKG_MANAGER is unavailable"
+    fi
+}
+
+check_terminal() {
+    run_command_check Git git --version
+    run_command_check Fish fish --no-execute "$HOME/.config/fish/config.fish"
+    run_check Tmux tmux -f "$HOME/.tmux.conf" start-server \; show-options -g default-terminal
+    run_command_check Starship starship --version
+    run_command_check Zoxide zoxide --version
+    run_command_check Atuin atuin --version
+    run_command_check Fzf fzf --version
+    run_command_check Ripgrep rg --version
+
+    if command_exists fd; then
+        run_check Fd fd --version
+    elif command_exists fdfind; then
+        run_check Fd fdfind --version
+    else
+        error Fd 'missing command: fd'
+    fi
+
+    if command_exists bat; then
+        run_check Bat bat --version
+    elif command_exists batcat; then
+        run_check Bat batcat --version
+    else
+        error Bat 'missing command: bat'
+    fi
+
+    run_command_check Python python3 --version
+    run_check Python-venv python3 -m venv --help
+    run_command_check Carapace carapace --version
+}
+
+check_workstation() {
+    if [[ "$PROFILE" != workstation && "$PROFILE" != full ]]; then
+        skip Neovim "not required by $PROFILE"
+        skip Node "not required by $PROFILE"
+        skip GitHub-CLI "not required by $PROFILE"
+        return
+    fi
+
+    run_check Neovim nvim --headless '+quitall'
+    if ! command_exists node; then
+        error Node 'missing command: node'
+    else
+        local version major
+        version="$(node --version 2>/dev/null || true)"
+        major="${version#v}"
+        major="${major%%.*}"
+        if [[ "$major" =~ ^[0-9]+$ ]] && (( major >= 18 )); then
+            ok Node "$version"
+        else
+            error Node "requires >= 18; found ${version:-unknown}"
+        fi
+    fi
+
+    run_command_check GitHub-CLI gh --version
+    if command_exists gh; then
+        if gh auth status >/dev/null 2>&1; then
+            ok GitHub-auth 'authenticated'
+        else
+            warn GitHub-auth 'not authenticated'
+        fi
+    fi
+}
+
+check_chats_manager() {
+    local loader="$ROOT_DIR/config/fish/conf.d/chats_manager.fish"
+    local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/chats-manager/fish"
+    local bootstrap="$state_dir/cheats_manager.fish"
+    local aliases="$state_dir/cheats_manager_aliases.fish"
+
+    if [[ ! -d "$CHATSMANAGER_DIR/.git" ]]; then
+        error chatsManager 'repository missing or not Git'
+        return
+    fi
+    if [[ ! -x "$CHATSMANAGER_DIR/.venv/bin/python" ]]; then
+        error chatsManager 'Python virtual environment missing'
+    else
+        run_check chatsManager "$CHATSMANAGER_DIR/.venv/bin/python" -c 'import rich'
+    fi
+    if [[ ! -f "$loader" ]]; then
+        error Fish-integration 'versioned chatsManager loader missing'
+        return
+    fi
+    if [[ ! -f "$bootstrap" ]]; then
+        error Fish-integration 'generated chatsManager state missing'
+        return
+    fi
+    if ! fish --no-execute "$loader" >/dev/null 2>&1 || ! fish --no-execute "$bootstrap" >/dev/null 2>&1; then
+        error Fish-integration 'loader or generated state has invalid syntax'
+        return
+    fi
+    if ! grep -Fq 'source "$CS_CHEATS_DIR/fish_aliases_example.fish"' "$bootstrap" || ! grep -Fq "set -gx CS_CHEATS_DIR $CHATSMANAGER_DIR" "$bootstrap" || ! grep -Fq 'set -gx CS_FISH_ALIASES_FILE' "$bootstrap" || ! grep -Fq 'source "$CS_CHEATS_DIR/fish_aliases_example.fish"' "$bootstrap" || [[ ! -f "$CHATSMANAGER_DIR/fish_aliases_example.fish" ]]; then
+        error Fish-integration 'generated state does not source chatsManager aliases'
+        return
+    fi
+    if [[ -f "$aliases" ]]; then
+        if ! fish --no-execute "$aliases" >/dev/null 2>&1; then
+            error Fish-integration 'generated aliases have invalid syntax'
+            return
+        fi
+    fi
+    if grep -Eq '^function cs([[:space:]]|$)' "$CHATSMANAGER_DIR/fish_aliases_example.fish"; then
+        ok cs 'declared by chatsManager Fish integration'
+    else
+        error cs 'not declared by chatsManager Fish integration'
+    fi
+    if grep -Eq '^function csfind([[:space:]]|$)' "$CHATSMANAGER_DIR/fish_aliases_example.fish"; then
+        ok csfind 'declared by chatsManager Fish integration'
+    else
+        error csfind 'not declared by chatsManager Fish integration'
+    fi
+    ok Fish-integration 'loader and generated state are valid'
+}
+
+check_symlinks() {
+    local target source
+    local pairs=(
+        "$HOME/.config/fish/config.fish:$ROOT_DIR/config/fish/config.fish"
+        "$HOME/.config/fish/conf.d:$ROOT_DIR/config/fish/conf.d"
+        "$HOME/.config/fish/functions:$ROOT_DIR/config/fish/functions"
+        "$HOME/.config/fish/completions:$ROOT_DIR/config/fish/completions"
+        "$HOME/.config/fish/themes:$ROOT_DIR/config/fish/themes"
+        "$HOME/.tmux.conf:$ROOT_DIR/config/tmux/tmux.conf"
+        "$HOME/.config/starship.toml:$ROOT_DIR/config/starship/starship.toml"
+    )
+    if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
+        pairs+=("$HOME/.config/nvim:$ROOT_DIR/config/nvim")
+    fi
+
+    for pair in "${pairs[@]}"; do
+        target="${pair%%:*}"
+        source="${pair#*:}"
+        if [[ -L "$target" && "$(readlink "$target")" == "$source" ]]; then
+            ok Symlink "$target"
+        else
+            error Symlink "$target is not managed by Mosquera Soft"
+        fi
+    done
+}
+
+check_repository() {
+    local label="$1"
+    local directory="$2"
+    local branch status upstream
+    if [[ ! -d "$directory/.git" ]]; then
+        error "$label" 'not a Git repository'
+        return
+    fi
+    branch="$(git -C "$directory" branch --show-current 2>/dev/null || true)"
+    status="$(git -C "$directory" status --porcelain 2>/dev/null || true)"
+    if [[ -n "$status" ]]; then
+        warn "$label" "branch ${branch:-detached}, working tree dirty"
+    else
+        ok "$label" "branch ${branch:-detached}, working tree clean"
+    fi
+    if git -C "$directory" remote get-url origin >/dev/null 2>&1; then
+        upstream="$(git -C "$directory" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+        if [[ -n "$upstream" ]]; then
+            ok "$label-origin" "$upstream configured"
+        else
+            warn "$label-origin" 'origin exists but branch has no upstream'
+        fi
+    else
+        warn "$label-origin" 'origin missing'
+    fi
+}
+
+main() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --profile)
+                [[ $# -ge 2 ]] || { error Profile '--profile requires a value'; break; }
+                PROFILE="$2"
+                shift
+                ;;
+            -h|--help) usage; exit 0 ;;
+            *) error Arguments "unknown argument: $1" ;;
+        esac
+        shift
+    done
+
+    printf 'Mosquera Soft Environment Doctor\n\n'
+    detect_platform
+    load_profile
+    validate_profile
+    check_platform
+    ok Profile "$PROFILE"
+    check_terminal
+    check_workstation
+    check_chats_manager
+    check_symlinks
+    check_repository mosquera-environment "$ROOT_DIR"
+    check_repository chatsManager "$CHATSMANAGER_DIR"
+
+    printf '\n'
+    if (( ERRORS > 0 )); then
+        printf 'Result: UNHEALTHY (%d error(s), %d warning(s))\n' "$ERRORS" "$WARNINGS"
+        exit 1
+    elif (( WARNINGS > 0 )); then
+        printf 'Result: HEALTHY WITH WARNINGS (%d warning(s))\n' "$WARNINGS"
+        exit 0
+    else
+        printf 'Result: HEALTHY\n'
+    fi
+}
+
+main "$@"
