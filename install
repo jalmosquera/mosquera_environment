@@ -48,6 +48,13 @@ run() {
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+refresh_user_paths() {
+    if [[ -d "$HOME/.atuin/bin" ]]; then
+        PATH="$HOME/.atuin/bin:$PATH"
+        export PATH
+    fi
+}
+
 select_profile() {
     if [[ -n "$PROFILE" ]]; then
         return
@@ -93,10 +100,6 @@ detect_platform() {
                 debian|ubuntu|linuxmint|pop)
                     DISTRO="${PRETTY_NAME:-Debian/Ubuntu}"
                     PKG_MANAGER="apt"
-                    ;;
-                opensuse*|sles)
-                    DISTRO="${PRETTY_NAME:-openSUSE}"
-                    PKG_MANAGER="zypper"
                     ;;
                 *) die "Unsupported Linux distribution: ${PRETTY_NAME:-${ID:-unknown}}" ;;
             esac
@@ -203,7 +206,7 @@ logical_command() {
 is_installed() {
     local package="$1"
     case "$package" in
-        python-venv) python3 -m venv --help >/dev/null 2>&1 ;;
+        python-venv) python3 -m ensurepip --version >/dev/null 2>&1 ;;
         build-tools)
             if [[ "$OS" == Darwin ]]; then
                 xcode-select -p >/dev/null 2>&1
@@ -214,6 +217,8 @@ is_installed() {
         chats-manager) [[ -x "$CHATSMANAGER_DIR/install.sh" ]] ;;
         fd) command_exists fd || command_exists fdfind ;;
         bat) command_exists bat || command_exists batcat ;;
+        atuin) command_exists atuin || [[ -x "$HOME/.atuin/bin/atuin" ]] ;;
+        carapace) command_exists carapace || [[ -x "$HOME/.local/bin/carapace" ]] ;;
         *) command_exists "$(logical_command "$package")" ;;
     esac
 }
@@ -222,38 +227,37 @@ package_name() {
     local package="$1"
     case "$PKG_MANAGER:$package" in
         brew:curl) printf 'curl' ;;
-        pacman:curl|apt:curl|zypper:curl) printf 'curl' ;;
-        brew:git|pacman:git|apt:git|zypper:git) printf 'git' ;;
-        brew:fish|pacman:fish|apt:fish|zypper:fish) printf 'fish' ;;
-        brew:tmux|pacman:tmux|apt:tmux|zypper:tmux) printf 'tmux' ;;
-        brew:fzf|pacman:fzf|apt:fzf|zypper:fzf) printf 'fzf' ;;
-        brew:ripgrep|pacman:ripgrep|apt:ripgrep|zypper:ripgrep) printf 'ripgrep' ;;
-        brew:fd|pacman:fd|zypper:fd) printf 'fd' ;;
+        pacman:curl|apt:curl) printf 'curl' ;;
+        brew:git|pacman:git|apt:git) printf 'git' ;;
+        brew:fish|pacman:fish|apt:fish) printf 'fish' ;;
+        brew:tmux|pacman:tmux|apt:tmux) printf 'tmux' ;;
+        brew:fzf|pacman:fzf|apt:fzf) printf 'fzf' ;;
+        brew:ripgrep|pacman:ripgrep|apt:ripgrep) printf 'ripgrep' ;;
+        brew:fd|pacman:fd) printf 'fd' ;;
         apt:fd) printf 'fd-find' ;;
-        brew:bat|pacman:bat|apt:bat|zypper:bat) printf 'bat' ;;
-        brew:less|pacman:less|apt:less|zypper:less) printf 'less' ;;
+        brew:bat|pacman:bat|apt:bat) printf 'bat' ;;
+        brew:less|pacman:less|apt:less) printf 'less' ;;
         brew:starship|pacman:starship) printf 'starship' ;;
-        brew:zoxide|pacman:zoxide|apt:zoxide|zypper:zoxide) printf 'zoxide' ;;
-        brew:atuin|pacman:atuin|apt:atuin|zypper:atuin) printf 'atuin' ;;
+        brew:zoxide|pacman:zoxide|apt:zoxide) printf 'zoxide' ;;
+        brew:atuin|pacman:atuin) printf 'atuin' ;;
         brew:carapace) printf 'carapace' ;;
         pacman:carapace) printf 'carapace-bin' ;;
         brew:python3) printf 'python' ;;
         pacman:python3) printf 'python' ;;
-        apt:python3|zypper:python3) printf 'python3' ;;
-        apt:python-venv|zypper:python-venv) printf 'python3-venv' ;;
-        brew:neovim|pacman:neovim|apt:neovim|zypper:neovim) printf 'neovim' ;;
+        apt:python3) printf 'python3' ;;
+        apt:python-venv) printf 'python3-venv' ;;
+        brew:neovim|pacman:neovim|apt:neovim) printf 'neovim' ;;
         brew:nodejs) printf 'node' ;;
-        pacman:nodejs|apt:nodejs|zypper:nodejs) printf 'nodejs' ;;
+        pacman:nodejs|apt:nodejs) printf 'nodejs' ;;
         pacman:build-tools) printf 'base-devel' ;;
         apt:build-tools) printf 'build-essential' ;;
-        zypper:build-tools) printf 'patterns-devel-base-devel_basis' ;;
         brew:github-cli) printf 'gh' ;;
         pacman:github-cli) printf 'github-cli' ;;
-        apt:github-cli|zypper:github-cli) printf 'gh' ;;
-        brew:tree|pacman:tree|apt:tree|zypper:tree) printf 'tree' ;;
-        brew:lsd|pacman:lsd|apt:lsd|zypper:lsd) printf 'lsd' ;;
-        pacman:clipboard-wayland|apt:clipboard-wayland|zypper:clipboard-wayland) printf 'wl-clipboard' ;;
-        pacman:clipboard-x11|apt:clipboard-x11|zypper:clipboard-x11) printf 'xclip' ;;
+        apt:github-cli) printf 'gh' ;;
+        brew:tree|pacman:tree|apt:tree) printf 'tree' ;;
+        brew:lsd|pacman:lsd|apt:lsd) printf 'lsd' ;;
+        pacman:clipboard-wayland|apt:clipboard-wayland) printf 'wl-clipboard' ;;
+        pacman:clipboard-x11|apt:clipboard-x11) printf 'xclip' ;;
         *) return 1 ;;
     esac
 }
@@ -267,18 +271,55 @@ install_native() {
         brew) run brew install "$name" ;;
         pacman) run sudo pacman -S --needed --noconfirm "$name" ;;
         apt) run sudo apt-get install -y "$name" ;;
-        zypper) run sudo zypper --non-interactive install --no-recommends "$name" ;;
     esac
+}
+
+install_official_carapace() {
+    local carapace_arch archive extract_dir binary matches release_tag
+    case "$ARCH" in
+        x86_64|amd64) carapace_arch="amd64" ;;
+        arm64|aarch64) carapace_arch="arm64" ;;
+        *) die "Carapace has no official Linux release for $ARCH." ;;
+    esac
+
+    archive="$(mktemp)"
+    extract_dir="$(mktemp -d)"
+    run mkdir -p "$HOME/.local/bin"
+    if "$DRY_RUN"; then
+        run curl --fail --silent --show-error --location https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest
+        return 0
+    fi
+    release_tag="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors https://api.github.com/repos/carapace-sh/carapace-bin/releases/latest | tr -d '\n' | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+    [[ -n "$release_tag" ]] || die 'Could not determine the latest official Carapace release.'
+    run curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+        "https://github.com/carapace-sh/carapace-bin/releases/download/${release_tag}/carapace-bin_${release_tag#v}_linux_${carapace_arch}.tar.gz" \
+        -o "$archive"
+
+    matches="$(tar -tzf "$archive" | grep -E '(^|/)carapace$' || true)"
+    if [[ -z "$matches" || "$(printf '%s\n' "$matches" | wc -l | tr -d ' ')" != 1 ]]; then
+        die 'Official Carapace release must contain exactly one carapace binary.'
+    fi
+    binary="$matches"
+    tar -xzf "$archive" -C "$extract_dir" "$binary"
+    install -m 0755 "$extract_dir/$binary" "$HOME/.local/bin/carapace"
+    rm -f "$archive"
+    rm -rf "$extract_dir"
+    "$HOME/.local/bin/carapace" --version >/dev/null || die 'Installed Carapace did not run.'
+    "$HOME/.local/bin/carapace" _carapace >/dev/null || die 'Installed Carapace cannot generate shell integration.'
 }
 
 install_special() {
     local package="$1"
     case "$package" in
         python-venv)
-            if [[ "$PKG_MANAGER" == brew || "$PKG_MANAGER" == pacman ]]; then
-                return 0
-            fi
-            install_native "$package"
+            case "$PKG_MANAGER" in
+                brew|pacman) return 0 ;;
+                apt)
+                    local python_version
+                    python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+                    run sudo apt-get install -y "python${python_version}-venv"
+                    ;;
+            esac
             ;;
         build-tools)
             if [[ "$OS" == Darwin ]]; then
@@ -294,14 +335,27 @@ install_special() {
             if package_name "$package" >/dev/null 2>&1; then
                 install_native "$package"
             else
-                run sh -c 'curl -fsSL https://starship.rs/install.sh | sh -s -- -y'
+                run sh -c 'set -eu; installer=$(mktemp); trap "rm -f $installer" EXIT; curl --fail --silent --show-error --location --retry 3 --retry-all-errors https://starship.rs/install.sh -o "$installer"; sh "$installer" -y'
+            fi
+            ;;
+        atuin)
+            if package_name "$package" >/dev/null 2>&1; then
+                install_native "$package"
+            else
+                run sh -c 'curl --proto "=https" --tlsv1.2 -LsSf https://setup.atuin.sh | sh -s -- --non-interactive'
+                "$DRY_RUN" || refresh_user_paths
             fi
             ;;
         carapace)
             if package_name "$package" >/dev/null 2>&1; then
                 install_native "$package"
             else
-                die "carapace has no native package mapping for $DISTRO yet; install it manually before rerunning."
+                case "$PKG_MANAGER" in
+                    apt)
+                        install_official_carapace
+                        ;;
+                    *) die "carapace has no installation method for $DISTRO yet." ;;
+                esac
             fi
             ;;
         *) install_native "$package" ;;
@@ -478,7 +532,7 @@ verify() {
 
     fish --no-execute "$HOME/.config/fish/config.fish" || die 'Fish configuration validation failed.'
     tmux -f "$HOME/.tmux.conf" start-server \; show-options -g default-terminal >/dev/null || die 'Tmux configuration validation failed.'
-    fish -c 'functions -q cs; and functions -q csfind' || die 'chatsManager Fish integration validation failed.'
+    fish -ic 'functions -q cs; and functions -q csfind' || die 'chatsManager Fish integration validation failed.'
     if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
         nvim --headless '+quitall' || die 'Neovim configuration validation failed.'
         node --version >/dev/null || die 'Node validation failed.'

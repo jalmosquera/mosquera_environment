@@ -3,7 +3,7 @@ if status is-interactive
         eval (brew shellenv)
     end
 
-    set -gx PATH $HOME/.local/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.cargo/bin $PATH
+    set -gx PATH $HOME/.local/bin $HOME/.atuin/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.cargo/bin $PATH
 
     if type -q starship
         starship init fish | source
@@ -14,12 +14,12 @@ if status is-interactive
     if type -q atuin
         atuin init fish | source
     end
-    if type -q fzf
+    if type -q fzf; and fzf --help | string match -q '*--fish*'
         fzf --fish | source
     end
     if type -q carapace
         set -gx CARAPACE_BRIDGES 'zsh,fish,bash'
-        carapace _carapace fish | source
+        carapace _carapace | source
     end
 
     # Opt in per machine with `set -Ux MOSQUERA_AUTO_TMUX 1`.

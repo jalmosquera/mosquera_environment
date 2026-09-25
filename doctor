@@ -50,7 +50,6 @@ detect_platform() {
             case "${ID:-}" in
                 arch|manjaro|endeavouros) PKG_MANAGER="pacman" ;;
                 debian|ubuntu|linuxmint|pop) PKG_MANAGER="apt" ;;
-                opensuse*|sles) PKG_MANAGER="zypper" ;;
                 *) PKG_MANAGER="unsupported" ;;
             esac
             ;;
