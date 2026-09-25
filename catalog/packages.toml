@@ -1,0 +1,199 @@
+# Logical dependencies mapped to the native package manager.
+# Empty mappings mean the component needs its own installer or user action.
+
+[groups.terminal]
+packages = [
+  "curl", "git", "fish", "tmux", "fzf", "ripgrep", "fd", "bat", "less",
+  "starship", "zoxide", "atuin", "carapace", "python3", "python-venv"
+]
+
+[groups.cheatsheets]
+packages = ["chats-manager"]
+
+[groups.development]
+packages = ["neovim", "nodejs", "build-tools", "github-cli", "tree", "lsd"]
+
+[groups.desktop]
+packages = ["clipboard-wayland", "clipboard-x11"]
+
+[packages.curl]
+brew = "curl"
+pacman = "curl"
+apt = "curl"
+zypper = "curl"
+check = ["curl", "--version"]
+
+[packages.git]
+brew = "git"
+pacman = "git"
+apt = "git"
+zypper = "git"
+check = ["git", "--version"]
+
+[packages.fish]
+brew = "fish"
+pacman = "fish"
+apt = "fish"
+zypper = "fish"
+check = ["fish", "--no-execute", "config/fish/config.fish"]
+
+[packages.tmux]
+brew = "tmux"
+pacman = "tmux"
+apt = "tmux"
+zypper = "tmux"
+check = ["tmux", "-f", "config/tmux/tmux.conf", "start-server", ";", "show-options", "-g", "default-terminal"]
+
+[packages.fzf]
+brew = "fzf"
+pacman = "fzf"
+apt = "fzf"
+zypper = "fzf"
+check = ["fzf", "--version"]
+
+[packages.ripgrep]
+brew = "ripgrep"
+pacman = "ripgrep"
+apt = "ripgrep"
+zypper = "ripgrep"
+check = ["rg", "--version"]
+
+[packages.fd]
+brew = "fd"
+pacman = "fd"
+apt = "fd-find"
+zypper = "fd"
+check = ["fd", "--version"]
+notes = "Debian/Ubuntu package is named fd-find and exposes fdfind. The future installer must create a user-local fd compatibility link only when fd is absent."
+
+[packages.bat]
+brew = "bat"
+pacman = "bat"
+apt = "bat"
+zypper = "bat"
+check = ["bat", "--version"]
+notes = "Debian/Ubuntu expose batcat. The future installer must create a user-local bat compatibility link only when bat is absent."
+
+[packages.less]
+brew = "less"
+pacman = "less"
+apt = "less"
+zypper = "less"
+check = ["less", "--version"]
+
+[packages.starship]
+brew = "starship"
+pacman = "starship"
+apt = ""
+zypper = ""
+installer = "official"
+check = ["starship", "--version"]
+notes = "Use native packages where available; otherwise use the official installer, not a third-party repository."
+
+[packages.zoxide]
+brew = "zoxide"
+pacman = "zoxide"
+apt = "zoxide"
+zypper = "zoxide"
+check = ["zoxide", "--version"]
+
+[packages.atuin]
+brew = "atuin"
+pacman = "atuin"
+apt = "atuin"
+zypper = "atuin"
+check = ["atuin", "--version"]
+notes = "Authentication and history sync are user opt-in and never automated."
+
+[packages.carapace]
+brew = "carapace"
+pacman = "carapace-bin"
+apt = ""
+zypper = ""
+installer = "official"
+check = ["carapace", "--version"]
+notes = "Use native package when available; otherwise install the official release binary for the detected architecture."
+
+[packages.python3]
+brew = "python"
+pacman = "python"
+apt = "python3"
+zypper = "python3"
+check = ["python3", "--version"]
+
+[packages.python-venv]
+brew = ""
+pacman = ""
+apt = "python3-venv"
+zypper = "python3-venv"
+check = ["python3", "-m", "venv", "--help"]
+notes = "Bundled with Python on Homebrew and Arch."
+
+[packages.chats-manager]
+source = "https://github.com/jalmosquera/chatsManager.git"
+branch = "master"
+installer = "repository"
+check = ["fish", "-c", "functions -q cs; and functions -q csfind"]
+notes = "The future installer clones or safely updates this independent repository and runs its install.sh. It owns its venv, Rich dependency, and Fish bootstrap."
+
+[packages.neovim]
+brew = "neovim"
+pacman = "neovim"
+apt = "neovim"
+zypper = "neovim"
+check = ["nvim", "--headless", "+quitall"]
+
+[packages.nodejs]
+brew = "node"
+pacman = "nodejs"
+apt = "nodejs"
+zypper = "nodejs"
+check = ["node", "--version"]
+notes = "Required by the captured Neovim configuration and several plugins. The future doctor must require Node 18 or newer."
+
+[packages.build-tools]
+brew = ""
+pacman = "base-devel"
+apt = "build-essential"
+zypper = "patterns-devel-base-devel_basis"
+installer = "platform"
+check = ["make", "--version"]
+notes = "Needed by captured Neovim plugins that build native components. macOS requires Xcode Command Line Tools, verified with xcode-select -p."
+
+[packages.github-cli]
+brew = "gh"
+pacman = "github-cli"
+apt = "gh"
+zypper = "gh"
+check = ["gh", "--version"]
+notes = "Authentication remains user initiated via gh auth login."
+
+[packages.tree]
+brew = "tree"
+pacman = "tree"
+apt = "tree"
+zypper = "tree"
+check = ["tree", "--version"]
+
+[packages.lsd]
+brew = "lsd"
+pacman = "lsd"
+apt = "lsd"
+zypper = "lsd"
+check = ["lsd", "--version"]
+
+[packages.clipboard-wayland]
+brew = ""
+pacman = "wl-clipboard"
+apt = "wl-clipboard"
+zypper = "wl-clipboard"
+check = ["wl-copy", "--version"]
+notes = "Install only on Linux when WAYLAND_DISPLAY is set. macOS uses built-in pbcopy; servers do not need a graphical clipboard package."
+
+[packages.clipboard-x11]
+brew = ""
+pacman = "xclip"
+apt = "xclip"
+zypper = "xclip"
+check = ["xclip", "-version"]
+notes = "Install only on Linux when DISPLAY is set and WAYLAND_DISPLAY is absent."
