@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# Safely update Mosquera Soft Environment repositories without merging conflicts.
+set -euo pipefail
+
+readonly ROOT_DIR="${MOSQUERA_ENV_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+readonly CHATSMANAGER_DIR="${CHATSMANAGER_DIR:-$HOME/.cheatsheets}"
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mosquera-soft"
+readonly PROFILE_FILE="$STATE_DIR/profile"
+
+DRY_RUN=false
+UPDATED_ENV=false
+UPDATED_CHATSMANAGER=false
+BLOCKED=false
+
+usage() {
+    cat <<'EOF'
+Usage: ./update [--dry-run]
+
+Fetches and fast-forwards Mosquera Soft Environment and chatsManager only when
+their working trees are clean and their current branches track an upstream.
+EOF
+}
+
+ok() { printf '✓ %-24s %s\n' "$1" "$2"; }
+warn() { printf '⚠ %-24s %s\n' "$1" "$2"; }
+error() { printf '✗ %-24s %s\n' "$1" "$2" >&2; }
+info() { printf '%s\n' "$*"; }
+
+run() {
+    if "$DRY_RUN"; then
+        printf '  dry-run:'
+        printf ' %q' "$@"
+        printf '\n'
+    else
+        "$@"
+    fi
+}
+
+profile() {
+    if [[ -r "$PROFILE_FILE" ]]; then
+        IFS= read -r REPORTED_PROFILE < "$PROFILE_FILE" || true
+    fi
+    case "${REPORTED_PROFILE:-}" in
+        core|server|workstation|full) printf '%s' "$REPORTED_PROFILE" ;;
+        *) printf 'core' ;;
+    esac
+}
+
+update_repository() {
+    local label="$1"
+    local directory="$2"
+    local changed_var="$3"
+    local upstream relation
+
+    if [[ ! -d "$directory/.git" ]]; then
+        error "$label" 'repository missing or invalid'
+        BLOCKED=true
+        return 0
+    fi
+    if [[ -n "$(git -C "$directory" status --porcelain)" ]]; then
+        warn "$label" 'working tree has local changes; update skipped'
+        BLOCKED=true
+        return 0
+    fi
+    if ! git -C "$directory" remote get-url origin >/dev/null 2>&1; then
+        error "$label" 'origin remote is missing'
+        BLOCKED=true
+        return 0
+    fi
+    upstream="$(git -C "$directory" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+    if [[ -z "$upstream" ]]; then
+        error "$label" 'current branch has no upstream'
+        BLOCKED=true
+        return 0
+    fi
+
+    if "$DRY_RUN"; then
+        run git -C "$directory" fetch origin
+        warn "$label" "would compare HEAD with $upstream after fetch"
+        return 0
+    fi
+    if ! git -C "$directory" fetch origin; then
+        error "$label" 'fetch failed; repository left unchanged'
+        BLOCKED=true
+        return 0
+    fi
+    if [[ "$(git -C "$directory" rev-parse HEAD)" == "$(git -C "$directory" rev-parse "$upstream")" ]]; then
+        ok "$label" 'already up to date'
+        return 0
+    fi
+    if git -C "$directory" merge-base --is-ancestor HEAD "$upstream"; then
+        relation='behind'
+    elif git -C "$directory" merge-base --is-ancestor "$upstream" HEAD; then
+        relation='ahead'
+    else
+        relation='diverged'
+    fi
+    case "$relation" in
+        behind)
+            if git -C "$directory" merge --ff-only "$upstream"; then
+                ok "$label" 'updated (fast-forward)'
+                printf -v "$changed_var" '%s' true
+            else
+                error "$label" 'fast-forward failed; repository left unchanged'
+                BLOCKED=true
+            fi
+            ;;
+        ahead) warn "$label" "ahead of $upstream; update skipped"; BLOCKED=true ;;
+        diverged) warn "$label" "diverged from $upstream; update skipped"; BLOCKED=true ;;
+    esac
+    return 0
+}
+
+apply_environment() {
+    local installed_profile
+    [[ "${UPDATE_SKIP_POST_ACTIONS:-false}" == true ]] && return 0
+    "$UPDATED_ENV" || return
+    installed_profile="$(profile)"
+    if "$DRY_RUN"; then
+        warn configuration "would apply profile $installed_profile"
+        return
+    fi
+    if "$ROOT_DIR/install" "$installed_profile"; then
+        ok configuration "applied profile $installed_profile"
+    else
+        error configuration 'application failed after repository update; no Git rollback was attempted'
+        exit 1
+    fi
+}
+
+apply_chats_manager() {
+    [[ "${UPDATE_SKIP_POST_ACTIONS:-false}" == true ]] && return 0
+    "$UPDATED_CHATSMANAGER" || return
+    if "$DRY_RUN"; then
+        warn chatsManager-bootstrap 'would run after update'
+        return
+    fi
+    if "$CHATSMANAGER_DIR/install.sh"; then
+        ok chatsManager-bootstrap 'applied'
+    else
+        error chatsManager-bootstrap 'failed after repository update; no Git rollback was attempted'
+        exit 1
+    fi
+}
+
+main() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run) DRY_RUN=true ;;
+            -h|--help) usage; exit 0 ;;
+            *) error Arguments "unknown argument: $1"; exit 1 ;;
+        esac
+        shift
+    done
+
+    info 'Mosquera Soft Environment Update'
+    info
+    update_repository mosquera-environment "$ROOT_DIR" UPDATED_ENV
+    update_repository chatsManager "$CHATSMANAGER_DIR" UPDATED_CHATSMANAGER
+    apply_environment
+    apply_chats_manager
+
+    if "$DRY_RUN"; then
+        info
+        info 'Dry-run completed. No repositories or configuration were modified.'
+        "$BLOCKED" && exit 1 || exit 0
+    fi
+
+    if [[ "${UPDATE_SKIP_POST_ACTIONS:-false}" == true ]]; then
+        skip_post_actions=true
+    else
+        skip_post_actions=false
+    fi
+    if "$skip_post_actions"; then
+        info 'Post-update actions skipped for isolated validation.'
+    elif "$ROOT_DIR/doctor" --profile "$(profile)"; then
+        ok doctor 'healthy'
+    else
+        error doctor 'reported errors after update'
+        exit 1
+    fi
+    info
+    if "$UPDATED_ENV" || "$UPDATED_CHATSMANAGER"; then
+        info 'Update completed.'
+    else
+        info 'Nothing to update.'
+    fi
+    "$BLOCKED" && exit 1 || exit 0
+}
+
+main "$@"

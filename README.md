@@ -36,6 +36,15 @@ Fish mantiene su estado mutable, incluido `fish_variables`, en `~/.config/fish`.
 ./install --configure-fish
 ```
 
+## Update
+
+```bash
+./update
+./update --dry-run
+```
+
+`update` fetches each repository and only applies a fast-forward when its working tree is clean. Local changes, missing upstreams and divergence are reported without stashing, merging, rebasing or overwriting data.
+
 ## Alcance inicial
 
 - Fish, tmux, Neovim y Starship.
