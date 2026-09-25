@@ -13,6 +13,7 @@ run_smoke() {
         runuser -u mosquera -- env HOME=/home/mosquera XDG_STATE_HOME=/home/mosquera/.local/state TERM=xterm-256color bash -ceu "
             git clone \"$REPOSITORY_URL\" /home/mosquera/environment
             cd /home/mosquera/environment
+            export NVIM_APPNAME=mosquera-release-smoke
             ./install workstation
             ./doctor --profile workstation
             ./update --dry-run

@@ -166,7 +166,7 @@ check_workstation() {
         return
     fi
 
-    run_check Neovim nvim --headless '+quitall'
+    run_command_check Neovim nvim --version
     if ! command_exists node; then
         error Node 'missing command: node'
     else

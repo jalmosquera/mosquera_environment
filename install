@@ -24,6 +24,8 @@ PKG_MANAGER=""
 BACKUP_DIR=""
 CARAPACE_ARCHIVE=""
 CARAPACE_EXTRACT_DIR=""
+NEOVIM_ARCHIVE=""
+NEOVIM_EXTRACT_DIR=""
 declare -a PACKAGES=()
 
 [[ -r "$PRESENTATION" ]] || { printf 'Missing presentation module: %s\n' "$PRESENTATION" >&2; exit 1; }
@@ -62,6 +64,8 @@ version() {
 cleanup_temporaries() {
     [[ -n "$CARAPACE_ARCHIVE" ]] && rm -f "$CARAPACE_ARCHIVE"
     [[ -n "$CARAPACE_EXTRACT_DIR" ]] && rm -rf "$CARAPACE_EXTRACT_DIR"
+    [[ -n "$NEOVIM_ARCHIVE" ]] && rm -f "$NEOVIM_ARCHIVE"
+    [[ -n "$NEOVIM_EXTRACT_DIR" ]] && rm -rf "$NEOVIM_EXTRACT_DIR"
 }
 
 trap cleanup_temporaries EXIT INT TERM
@@ -81,6 +85,10 @@ command_exists() { command -v "$1" >/dev/null 2>&1; }
 refresh_user_paths() {
     if [[ -d "$HOME/.atuin/bin" ]]; then
         PATH="$HOME/.atuin/bin:$PATH"
+        export PATH
+    fi
+    if [[ -d "$HOME/.local/nvim/bin" ]]; then
+        PATH="$HOME/.local/nvim/bin:$PATH"
         export PATH
     fi
 }
@@ -265,6 +273,7 @@ is_installed() {
         bat) command_exists bat || command_exists batcat ;;
         atuin) command_exists atuin || [[ -x "$HOME/.atuin/bin/atuin" ]] ;;
         carapace) command_exists carapace || [[ -x "$HOME/.local/bin/carapace" ]] ;;
+        neovim) neovim_version_supported ;;
         *) command_exists "$(logical_command "$package")" ;;
     esac
 }
@@ -379,6 +388,50 @@ install_official_carapace() {
     "$HOME/.local/bin/carapace" _carapace >/dev/null || die 'Installed Carapace cannot generate shell integration.'
 }
 
+neovim_version_supported() {
+    local version major minor
+    command_exists nvim || return 1
+    version="$(nvim --version 2>/dev/null | awk 'NR == 1 { sub(/^NVIM v/, ""); print }')"
+    major="${version%%.*}"
+    minor="${version#*.}"
+    minor="${minor%%.*}"
+    [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ ]] || return 1
+    (( major > 0 || minor >= 11 ))
+}
+
+install_official_neovim() {
+    local neovim_arch archive extract_dir release_dir
+    case "$ARCH" in
+        x86_64|amd64) neovim_arch='x86_64' ;;
+        arm64|aarch64) neovim_arch='arm64' ;;
+        *) die "Neovim has no official Linux release for $ARCH." ;;
+    esac
+
+    archive="$(mktemp)"
+    extract_dir="$(mktemp -d)"
+    NEOVIM_ARCHIVE="$archive"
+    NEOVIM_EXTRACT_DIR="$extract_dir"
+    run mkdir -p "$HOME/.local"
+    if "$DRY_RUN"; then
+        run curl --fail --silent --show-error --location --head "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${neovim_arch}.tar.gz"
+        return 0
+    fi
+    run curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${neovim_arch}.tar.gz" \
+        -o "$archive"
+    mosquera_ui_command neovim tar -xzf "$archive" -C "$extract_dir"
+    release_dir="$extract_dir/nvim-linux-$neovim_arch"
+    [[ -x "$release_dir/bin/nvim" ]] || die 'Official Neovim archive did not contain nvim.'
+    run rm -rf "$HOME/.local/nvim"
+    mosquera_ui_command neovim mv "$release_dir" "$HOME/.local/nvim"
+    rm -f "$archive"
+    rm -rf "$extract_dir"
+    NEOVIM_ARCHIVE=""
+    NEOVIM_EXTRACT_DIR=""
+    refresh_user_paths
+    neovim_version_supported || die 'Installed Neovim did not meet the required version.'
+}
+
 install_special() {
     local package="$1"
     case "$package" in
@@ -427,6 +480,13 @@ install_special() {
                         ;;
                     *) die "carapace has no installation method for $DISTRO yet." ;;
                 esac
+            fi
+            ;;
+        neovim)
+            if [[ "$PKG_MANAGER" == apt ]]; then
+                install_official_neovim
+            else
+                install_native "$package"
             fi
             ;;
         *) install_native "$package" ;;
@@ -618,7 +678,8 @@ verify() {
     tmux -f "$HOME/.tmux.conf" start-server \; show-options -g default-terminal >/dev/null || die 'Tmux configuration validation failed.'
     fish -c 'source "$argv[1]"; functions -q cs; and functions -q csfind' "${XDG_STATE_HOME:-$HOME/.local/state}/chats-manager/fish/cheats_manager.fish" || die 'chatsManager Fish integration validation failed.'
     if [[ "$PROFILE" == workstation || "$PROFILE" == full ]]; then
-        nvim --headless '+quitall' || die 'Neovim configuration validation failed.'
+        refresh_user_paths
+        neovim_version_supported || die 'Neovim version validation failed.'
         node --version >/dev/null || die 'Node validation failed.'
     fi
     mosquera_ui_status ok verification 'installation verified'
