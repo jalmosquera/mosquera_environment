@@ -24,7 +24,7 @@ Los aliases no fuerzan la instalacion de su herramienta. Se mantendran disponibl
 
 ## Hallazgos pendientes para normalizacion posterior
 
-- Fish, tmux y Neovim contienen rutas macOS/Homebrew que deben pasar a deteccion de runtime.
-- El alias `commit` apunta a un script ausente: `/Users/jalberth/Documents/customUtils/customsGIT.bash`.
-- `PROJECT_PATHS` contiene el valor heredado `/home/alanbuscaglia/work`, inexistente en este Mac; `pj` por tanto no es funcional hoy.
+- `commit` se excluye: apuntaba a un script ausente y no existe una alternativa verificable.
+- `PROJECT_PATHS` no se versiona: su valor heredado `/home/alanbuscaglia/work` es invalido. `pj` permanece disponible y requiere configuracion local por maquina.
+- Los hosts SSH `jserver` e `imac` y las acciones GUI no se instalan como configuracion comun.
 - chatsManager ya tiene un instalador portable propio y permanece como repositorio independiente.

@@ -4,6 +4,7 @@
 !.env.example
 *.local
 *.local.*
+!*.local.example
 *.bak
 *.tmp
 *.swp

@@ -6,10 +6,9 @@ local M = {}
 
 -- Function to get system Node.js path (avoiding project-specific versions)
 local function get_system_node()
-  -- Priority order for system Node.js (avoiding project overrides)
+  -- Use PATH first so native package managers and user-selected runtimes work everywhere.
   local system_paths = {
-    "/opt/homebrew/bin/node", -- Homebrew on Apple Silicon
-    "/usr/local/bin/node", -- Homebrew on Intel Mac or standard install
+    vim.fn.exepath("node"),
     vim.fn.expand("~/.volta/bin/node"), -- Volta's global Node
     vim.fn.expand("~/.nvm/versions/node/*/bin/node"), -- NVM default version
     vim.fn.expand("~/.nix-profile/bin/node"), -- Nix

@@ -1,76 +1,37 @@
 if status is-interactive
-    # Commands to run in interactive sessions can go here
-    # Install Fisher if not installed
     if not functions -q fisher
         curl -sL https://git.io/fisher | source
-
+        fisher install jorgebucaran/fisher
     end
 
-end
-
-# Detect Termux
-set -l IS_TERMUX 0
-if test -n "$TERMUX_VERSION"; or test -d /data/data/com.termux
-    set IS_TERMUX 1
-end
-
-if test $IS_TERMUX -eq 1
-    # Termux - use PREFIX for binaries
-    set -x PATH $PREFIX/bin $HOME/.local/bin $HOME/.cargo/bin $PATH
-else if test (uname) = Darwin
-    # macOS - check for Apple Silicon vs Intel
-    if test -f /opt/homebrew/bin/brew
-        # Apple Silicon (M1/M2/M3)
-        set BREW_BIN /opt/homebrew/bin/brew
-    else if test -f /usr/local/bin/brew
-        # Intel Mac
-        set BREW_BIN /usr/local/bin/brew
+    if type -q brew
+        eval (brew shellenv)
     end
-    set -x PATH $HOME/.local/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.nix-profile/bin /nix/var/nix/profiles/default/bin /usr/local/bin $HOME/.config $HOME/.cargo/bin $PATH
-else
-    # Linux
-    set BREW_BIN /home/linuxbrew/.linuxbrew/bin/brew
-    set -x PATH $HOME/.local/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.nix-profile/bin /nix/var/nix/profiles/default/bin /usr/local/bin $HOME/.config $HOME/.cargo/bin $PATH
-end
 
-# Only eval brew shellenv if brew is installed (not on Termux)
-if test $IS_TERMUX -eq 0; and set -q BREW_BIN; and test -f $BREW_BIN
-    eval ($BREW_BIN shellenv)
-end
+    fish_add_path --prepend $HOME/.local/bin $HOME/.opencode/bin $HOME/.volta/bin $HOME/.bun/bin $HOME/.cargo/bin
 
-# Start tmux/zellij
-if not set -q TMUX
-    tmux
-end
-
-#if not set -q ZELLIJ
-#    zellij
-#end
-
-# Initialize tools
-starship init fish | source
-zoxide init fish | source
-atuin init fish | source
-fzf --fish | source
-
-set -x PATH $HOME/.cargo/bin $PATH
-
-# Carapace completions
-set -Ux CARAPACE_BRIDGES 'zsh,fish,bash'
-
-if not test -d ~/.config/fish/completions
-    mkdir -p ~/.config/fish/completions
-end
-
-if not test -f ~/.config/fish/completions/.initialized
-    if not test -d ~/.config/fish/completions
-        mkdir -p ~/.config/fish/completions
+    if type -q starship
+        starship init fish | source
     end
-    carapace --list | awk '{print $1}' | xargs -I{} touch ~/.config/fish/completions/{}.fish
-    touch ~/.config/fish/completions/.initialized
-end
+    if type -q zoxide
+        zoxide init fish | source
+    end
+    if type -q atuin
+        atuin init fish | source
+    end
+    if type -q fzf
+        fzf --fish | source
+    end
+    if type -q carapace
+        set -gx CARAPACE_BRIDGES 'zsh,fish,bash'
+        carapace _carapace fish | source
+    end
 
-carapace _carapace fish | source
+    # Opt in per machine with `set -Ux MOSQUERA_AUTO_TMUX 1`.
+    if set -q MOSQUERA_AUTO_TMUX; and not set -q TMUX; and type -q tmux
+        tmux new-session -A -s main
+    end
+end
 
 set -g fish_greeting ""
 
@@ -80,13 +41,6 @@ fish_vi_key_bindings
 # Set nvim as default editor for opencode and other tools
 set -gx EDITOR nvim
 set -gx VISUAL nvim
-
-## alias
-if test (uname) = Darwin
-    alias ls='ls --color=auto'
-else
-    alias ls='gls --color=auto'
-end
 
 set -l foreground C0CAF5 normal
 set -l selection 28344A
@@ -120,10 +74,3 @@ set -g fish_pager_color_progress $comment
 set -g fish_pager_color_prefix $cyan
 set -g fish_pager_color_completion $foreground
 set -g fish_pager_color_description $comment
-clear
-
-# opencode
-fish_add_path /Users/jalberth/.opencode/bin
-
-# Hermes Agent — ensure ~/.local/bin is on PATH
-fish_add_path "$HOME/.local/bin"
