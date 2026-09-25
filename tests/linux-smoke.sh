@@ -15,6 +15,7 @@ run_smoke() {
             cd /home/mosquera/environment
             export NVIM_APPNAME=mosquera-release-smoke
             ./install workstation
+            test -z "\$(git status --porcelain)"
             ./doctor --profile workstation
             ./update --dry-run
             ./install workstation
