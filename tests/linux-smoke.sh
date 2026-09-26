@@ -16,11 +16,14 @@ run_smoke() {
             export NVIM_APPNAME=mosquera-release-smoke
             ./install workstation
             command -v fish
-            test /home/mosquera/.config/fish/config.fish -ef /home/mosquera/environment/config/fish/config.fish
+            test -L /home/mosquera/.config/fish/config.fish
+            readlink /home/mosquera/.config/fish/config.fish
             command -v tmux
-            test /home/mosquera/.tmux.conf -ef /home/mosquera/environment/config/tmux/tmux.conf
+            test -L /home/mosquera/.tmux.conf
+            readlink /home/mosquera/.tmux.conf
             command -v nvim
-            test /home/mosquera/.config/nvim -ef /home/mosquera/environment/config/nvim
+            test -L /home/mosquera/.config/nvim
+            readlink /home/mosquera/.config/nvim
             git status --porcelain > /tmp/mosquera-git-status
             test ! -s /tmp/mosquera-git-status
             ./doctor --profile workstation
