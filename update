@@ -87,8 +87,7 @@ update_repository() {
     fi
 
     if "$DRY_RUN"; then
-        run git -C "$directory" fetch origin
-        warn "$label" "would compare HEAD with $upstream after fetch"
+        warn "$label" "would fetch origin and compare HEAD with $upstream"
         return 0
     fi
     if ! git -C "$directory" fetch origin; then
