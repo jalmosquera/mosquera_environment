@@ -425,6 +425,8 @@ install_official_neovim() {
     [[ -x "$release_dir/bin/nvim" ]] || die 'Official Neovim archive did not contain nvim.'
     run rm -rf "$HOME/.local/nvim"
     mosquera_ui_command neovim mv "$release_dir" "$HOME/.local/nvim"
+    run mkdir -p "$HOME/.local/bin"
+    run ln -sfn "$HOME/.local/nvim/bin/nvim" "$HOME/.local/bin/nvim"
     rm -f "$archive"
     rm -rf "$extract_dir"
     NEOVIM_ARCHIVE=""
