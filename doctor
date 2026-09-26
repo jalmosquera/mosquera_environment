@@ -21,6 +21,10 @@ WARNINGS=0
 # shellcheck disable=SC1090
 source "$PRESENTATION"
 
+# User-local installers place binaries here; checking them does not modify state.
+PATH="$HOME/.local/bin:$HOME/.atuin/bin:$HOME/.local/nvim/bin:$PATH"
+export PATH
+
 usage() {
     cat <<'EOF'
 Uso: ./doctor [--profile core|server|workstation|full]

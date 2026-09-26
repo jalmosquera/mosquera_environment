@@ -21,7 +21,7 @@ run_smoke() {
             command -v tmux
             test -L /home/mosquera/.tmux.conf
             readlink /home/mosquera/.tmux.conf
-            command -v nvim
+            test -x /home/mosquera/.local/bin/nvim
             test -L /home/mosquera/.config/nvim
             readlink /home/mosquera/.config/nvim
             git status --porcelain > /tmp/mosquera-git-status
