@@ -57,9 +57,8 @@ if grep -Fq '███╗' "$TMP_DIR/tui-narrow.log"; then
     exit 1
 fi
 
-printf 'p\033q' | script -q "$TMP_DIR/tui-profile.log" ./install >/dev/null 2>&1
-assert_contains "$TMP_DIR/tui-profile.log" 'Seleccionar perfil'
-assert_contains "$TMP_DIR/tui-profile.log" 'Estación completa de desarrollo'
+python3 ./tests/tui-pty.py > "$TMP_DIR/tui-pty.log"
+assert_contains "$TMP_DIR/tui-pty.log" 'PASS'
 
 printf 'q' | script -q "$TMP_DIR/tui-check.log" bash -c 'ROOT_DIR="$PWD"; source ./lib/tui.sh; mosquera_tui_automated_demo check' >/dev/null 2>&1
 assert_contains "$TMP_DIR/tui-check.log" 'Comprobación del sistema'

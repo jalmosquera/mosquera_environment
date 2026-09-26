@@ -145,10 +145,25 @@ mosquera_tui_header() {
 }
 
 mosquera_tui_read_key() {
-    local key rest
-    IFS= read -r -s -n 1 key || return 1
+    local key rest terminal_mode
+    terminal_mode="$(stty -g < /dev/tty)" || return 1
+    stty -icanon -echo min 1 time 0 < /dev/tty || {
+        stty "$terminal_mode" < /dev/tty
+        return 1
+    }
+    if ! IFS= read -r -n 1 key < /dev/tty; then
+        stty "$terminal_mode" < /dev/tty
+        [[ -z "$key" ]] && printf enter
+        return
+    fi
+    stty "$terminal_mode" < /dev/tty
+
+    if [[ -z "$key" ]]; then
+        printf enter
+        return 0
+    fi
     if [[ "$key" == $'\033' ]]; then
-        if IFS= read -r -s -n 2 -t 0.05 rest; then
+        if IFS= read -r -s -n 2 -t 1 rest < /dev/tty; then
             case "$rest" in
                 '[A') printf up ;;
                 '[B') printf down ;;
