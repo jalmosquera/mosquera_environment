@@ -44,8 +44,8 @@ run_ubuntu() {
     local platform="$1"
     run_smoke ubuntu:24.04 "$platform" '
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y bash sudo passwd git curl ca-certificates
+        apt-get -qq update
+        apt-get -qq install -y bash sudo passwd git curl ca-certificates > /dev/null
     '
 }
 
