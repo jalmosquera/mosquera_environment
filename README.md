@@ -148,7 +148,7 @@ Repositorios `dirty`, `ahead` o `diverged` se reportan y se protegen en lugar de
 
 ## Validación de plataformas
 
-La validación de release cubre macOS arm64, Ubuntu 24.04 arm64 y amd64, y Arch Linux amd64 mediante fresh clones desechables. La imagen oficial `archlinux:latest` no publica `linux/arm64`, por lo que Arch Linux arm64 no se declara como validado por contenedor.
+La validación de release cubre macOS arm64 y Ubuntu 24.04 arm64 mediante fresh clones desechables. Arch Linux amd64 no se valida en Docker Desktop cuando `pacman` falla antes de instalar por restricciones seccomp; Arch Linux arm64 no se valida porque `archlinux:latest` no publica `linux/arm64`. Ubuntu amd64 requiere una ejecución nativa: bajo emulación Docker Desktop, el paquete `gh` de Ubuntu 24.04 falla con SIGSEGV fuera de Mosquera Soft.
 
 ## Estructura
 
