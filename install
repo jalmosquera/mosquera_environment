@@ -66,6 +66,7 @@ cleanup_temporaries() {
     [[ -n "$CARAPACE_EXTRACT_DIR" ]] && rm -rf "$CARAPACE_EXTRACT_DIR"
     [[ -n "$NEOVIM_ARCHIVE" ]] && rm -f "$NEOVIM_ARCHIVE"
     [[ -n "$NEOVIM_EXTRACT_DIR" ]] && rm -rf "$NEOVIM_EXTRACT_DIR"
+    return 0
 }
 
 trap cleanup_temporaries EXIT INT TERM
@@ -592,6 +593,11 @@ link_fish_config() {
     for path in "${entries[@]}"; do
         link_config "$ROOT_DIR/config/fish/$path" "$fish_dir/$path"
     done
+
+    if [[ ! -e "$fish_dir/mosquera.local.fish" ]]; then
+        run cp "$ROOT_DIR/config/fish/conf.d/mosquera.local.example.fish" "$fish_dir/mosquera.local.fish"
+        "$DRY_RUN" || mosquera_ui_status ok configuration "$fish_dir/mosquera.local.fish created"
+    fi
 }
 
 configure_fish_only() {

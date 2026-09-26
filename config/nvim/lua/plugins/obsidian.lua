@@ -12,12 +12,12 @@ return {
   },
   opts = {
     legacy_commands = false,
-    workspaces = {
+    workspaces = vim.env.MOSQUERA_OBSIDIAN_VAULT and {
       {
         name = "JalberthNotes", -- Name of the workspace
-        path = os.getenv("HOME") .. "/Documents/Obsidian Vault/Templates", -- Path to the notes directory
+        path = vim.env.MOSQUERA_OBSIDIAN_VAULT,
       },
-    },
+    } or {},
     completion = {
       cmp = true,
     },

@@ -28,6 +28,10 @@ if status is-interactive
     end
 end
 
+if test -r "$HOME/.config/fish/mosquera.local.fish"
+    source "$HOME/.config/fish/mosquera.local.fish"
+end
+
 set -g fish_greeting ""
 
 # Enable vi mode without persisting a universal variable in fish_variables.
